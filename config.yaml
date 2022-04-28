@@ -1,0 +1,10 @@
+qutoes: 
+  - '笑死'
+  - '挺好'
+  - '素'
+  - 'ao'
+
+repeater:
+  rand:
+    start: 20
+    end: 50

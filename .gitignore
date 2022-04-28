@@ -1,0 +1,7 @@
+mcrc_tgbot
+data/
+.vscode/
+Makefile
+vendor
+my-docker-compose.yml
+Dockerfile
