@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
 
 	constant "github.com/0w0mewo/mcrc_tgbot/const"
 	"github.com/0w0mewo/mcrc_tgbot/model"
@@ -14,56 +13,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var defaultForwarder *tweetForwarder
-
-func init() {
-	defaultForwarder = newTweetForwarder()
-
-}
-
-func Subscribe(chat model.Chat, username string) error {
-	return defaultForwarder.Subscribe(chat, username)
-}
-
-func Unsubscribe(chatid int64, username string) error {
-	return defaultForwarder.Unsubscribe(chatid, username)
-}
-
-func GetSubscriptions(chatid int64) ([]*model.TweetUser, error) {
-	return defaultForwarder.GetSubscriptions(chatid)
-}
-
-func DoWhenSet(cb any) {
-	defaultForwarder.DoWhenSet(cb)
-}
-
-func Shutdown() {
-
-	defaultForwarder.Shutdown()
-}
-
 type tweetForwarder struct {
-	repo   persistent.ChatTweetSubRepo
-	logger *logrus.Entry
-	quit   chan bool
-	wg     *sync.WaitGroup
-	evhub  *event.Dispatcher
+	repo           persistent.ChatTweetSubRepo
+	logger         *logrus.Entry
+	evhub          *event.Dispatcher
+	scheduledTasks *utils.ScheduledTaskGroup
 }
 
 func newTweetForwarder() *tweetForwarder {
-
-	ret := &tweetForwarder{
-		repo:   persistent.NewChatTweetSubSqlStorage(persistent.DefaultDBConn),
-		logger: utils.NewLogger().WithField("service", "tweetlistener"),
-		wg:     &sync.WaitGroup{},
-		evhub:  event.New(),
-		quit:   make(chan bool),
+	tf := &tweetForwarder{
+		repo:           persistent.NewChatTweetSubSqlStorage(persistent.DefaultDBConn),
+		logger:         utils.NewLogger().WithField("service", "tweetlistener"),
+		evhub:          event.New(),
+		scheduledTasks: utils.NewScheduledTaskGroup("tweet_update"),
 	}
 
-	ret.wg.Add(1)
-	go ret.watch(constant.TWEET_REFRESH_INTERVAL)
+	// register periodical poller
+	tf.scheduledTasks.AddPerodical(constant.TWEET_REFRESH_INTERVAL, tf.poll)
 
-	return ret
+	return tf
 }
 
 func (tl *tweetForwarder) GetSubscriptions(chatid int64) ([]*model.TweetUser, error) {
@@ -110,49 +78,32 @@ func (tl *tweetForwarder) DoWhenSet(cb any) {
 }
 
 func (tl *tweetForwarder) Shutdown() {
-	tl.quit <- true
-
 	err := tl.repo.Close()
 	if err != nil {
 		tl.logger.Error(err)
 	}
-	tl.wg.Wait()
+	tl.scheduledTasks.WaitAndStop()
 }
 
-func (tl *tweetForwarder) watch(interval time.Duration) {
-	ticker := time.NewTicker(interval)
+func (tl *tweetForwarder) poll() error {
+	var wg sync.WaitGroup // for chats polling
 
-	defer func() {
-		ticker.Stop()
-		tl.wg.Done()
-		close(tl.quit)
-	}()
-
-	for {
-		select {
-		case <-tl.quit:
-			return
-
-		case <-ticker.C:
-			var wg sync.WaitGroup // for chats polling
-
-			// get all chats which subscribed various tweeters
-			chats, err := tl.repo.GetAllChat(context.Background())
-			if err != nil {
-				tl.logger.Errorln(err)
-				continue
-			}
-
-			// go through each chat
-			for _, chatid := range chats {
-				wg.Add(1)
-				go tl.updateChatSubs(chatid, &wg)
-			}
-
-			wg.Wait()
-		}
-
+	// get all chats which subscribed various tweeters
+	chats, err := tl.repo.GetAllChat(context.Background())
+	if err != nil {
+		tl.logger.Errorln(err)
+		return err
 	}
+
+	// go through each chat
+	for _, chatid := range chats {
+		wg.Add(1)
+		go tl.updateChatSubs(chatid, &wg)
+	}
+
+	wg.Wait()
+
+	return nil
 }
 
 func (tl *tweetForwarder) updateChatSubs(chatid int64, joinwg *sync.WaitGroup) error {
