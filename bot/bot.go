@@ -53,7 +53,7 @@ func (b *Bot) Start() {
 	b.tgbot.Use(BypassBotMessage, BypassSelfMessage, StoreGrpMessage(b.msgrepo))
 
 	// load modules
-	mods := ModRegister.Get()
+	mods := ModRegister.GetModules()
 	for _, m := range mods {
 		m.Start(b)
 	}
@@ -70,7 +70,7 @@ func (b *Bot) Start() {
 
 func (b *Bot) Stop() {
 	// kill all modules
-	mods := ModRegister.Get()
+	mods := ModRegister.GetModules()
 	for _, m := range mods {
 		m.Stop(b)
 	}
@@ -89,7 +89,7 @@ func (b *Bot) Bot() *telebot.Bot {
 func processHandlers(ev string) telebot.HandlerFunc {
 	return func(c telebot.Context) (err error) {
 		// process all registered handlers
-		handlers := ModRegister.GetHandlers(ev)
+		handlers := ModRegister.GetTgEventHandlers(ev)
 		for _, handler := range handlers {
 			err = handler(c)
 			if err != nil {

@@ -20,7 +20,7 @@ func init() {
 		conf:   cfg,
 		cman:   newCmdManager(),
 	}
-	bot.ModRegister.Registry(cmder)
+	bot.ModRegister.RegistryMod(cmder)
 
 }
 

@@ -63,7 +63,7 @@ func (mm *modMan) AddTgEventHandler(_type string, handler telebot.HandlerFunc) {
 	mm.handlers[_type] = append(mm.handlers[_type], handler)
 }
 
-func (mm *modMan) GetHandlers(_type string) []telebot.HandlerFunc {
+func (mm *modMan) GetTgEventHandlers(_type string) []telebot.HandlerFunc {
 	mm.lock.RLock()
 	defer mm.lock.RUnlock()
 
@@ -75,7 +75,7 @@ func (mm *modMan) GetHandlers(_type string) []telebot.HandlerFunc {
 	return mm.handlers[_type]
 }
 
-func (mm *modMan) Registry(mod Module) {
+func (mm *modMan) RegistryMod(mod Module) {
 	modName := mod.Name()
 
 	mm.lock.Lock()
@@ -84,7 +84,7 @@ func (mm *modMan) Registry(mod Module) {
 	mm.mods[modName] = mod
 }
 
-func (mm *modMan) Get() []Module {
+func (mm *modMan) GetModules() []Module {
 	mm.lock.RLock()
 	defer mm.lock.RUnlock()
 

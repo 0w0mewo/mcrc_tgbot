@@ -13,7 +13,7 @@ func init() {
 	r := &Notifier{
 		logger: utils.NewLogger(),
 	}
-	bot.ModRegister.Registry(r)
+	bot.ModRegister.RegistryMod(r)
 }
 
 // group message random repeater

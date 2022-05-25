@@ -20,7 +20,7 @@ func init() {
 		chatRandLimit: utils.NewRandomMap(cfg.randstart, cfg.randend),
 		msgCounter:    utils.NewCounter(),
 	}
-	bot.ModRegister.Registry(r)
+	bot.ModRegister.RegistryMod(r)
 }
 
 // group message random repeater
