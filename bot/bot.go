@@ -51,13 +51,16 @@ func NewBot(token string) (*Bot, error) {
 func (b *Bot) Start() {
 	// load middlewares
 	b.tgbot.Use(BypassBotMessage, BypassSelfMessage, StoreGrpMessage(b.msgrepo))
-	b.tgbot.Handle(telebot.OnMedia, func(ctx telebot.Context) error {
-		return nil
-	})
+
 	// load modules
 	mods := ModRegister.Get()
 	for _, m := range mods {
 		m.Start(b)
+	}
+
+	// registry handlers
+	for _, ev := range listenTo {
+		b.tgbot.Handle(ev, processHandlers(ev))
 	}
 
 	// start
@@ -81,4 +84,19 @@ func (b *Bot) Stop() {
 
 func (b *Bot) Bot() *telebot.Bot {
 	return b.tgbot
+}
+
+func processHandlers(ev string) telebot.HandlerFunc {
+	return func(c telebot.Context) (err error) {
+		// process all registered handlers
+		handlers := ModRegister.GetHandlers(ev)
+		for _, handler := range handlers {
+			err = handler(c)
+			if err != nil {
+				return
+			}
+		}
+
+		return
+	}
 }

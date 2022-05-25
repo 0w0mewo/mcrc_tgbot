@@ -6,6 +6,7 @@ import (
 	"time"
 
 	constant "github.com/0w0mewo/mcrc_tgbot/const"
+	"gopkg.in/telebot.v3"
 )
 
 var ErrUnregisterMod = errors.New("mod is not registered")
@@ -23,6 +24,7 @@ type modMan struct {
 	lock       *sync.RWMutex
 	mods       map[string]Module
 	reloadTick *time.Ticker
+	handlers   map[string][]telebot.HandlerFunc
 }
 
 func newModMan() *modMan {
@@ -30,6 +32,7 @@ func newModMan() *modMan {
 		mods:       make(map[string]Module),
 		lock:       &sync.RWMutex{},
 		reloadTick: time.NewTicker(constant.MOD_RELOAD_INTERVAL),
+		handlers:   make(map[string][]telebot.HandlerFunc),
 	}
 
 	go func(mods map[string]Module) {
@@ -41,6 +44,29 @@ func newModMan() *modMan {
 	}(ret.mods)
 
 	return ret
+}
+
+func (mm *modMan) AddTgEventHandler(_type string, handler telebot.HandlerFunc) {
+	mm.lock.Lock()
+	defer mm.lock.Unlock()
+
+	if mm.handlers[_type] == nil {
+		mm.handlers[_type] = make([]telebot.HandlerFunc, 0)
+	}
+
+	if handler == nil {
+		mm.handlers[_type] = append(mm.handlers[_type], defaultHandler)
+		return
+	}
+
+	mm.handlers[_type] = append(mm.handlers[_type], handler)
+}
+
+func (mm *modMan) GetHandlers(_type string) []telebot.HandlerFunc {
+	mm.lock.RLock()
+	defer mm.lock.RUnlock()
+
+	return mm.handlers[_type]
 }
 
 func (mm *modMan) Registry(mod Module) {
@@ -63,4 +89,8 @@ func (mm *modMan) Get() []Module {
 	}
 
 	return mods
+}
+
+func defaultHandler(ctx telebot.Context) error {
+	return nil
 }

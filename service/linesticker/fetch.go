@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/0w0mewo/mcrc_tgbot/utils"
-
 	"github.com/sirupsen/logrus"
 )
 

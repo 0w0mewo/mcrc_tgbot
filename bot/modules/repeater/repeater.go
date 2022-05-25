@@ -61,7 +61,8 @@ func (r *Repeater) Reload() {
 		if r.tgbot == nil {
 			return
 		}
-		r.tgbot.Handle(ev, r.repeater, bot.MessageCounter(r.msgCounter, r.chatRandLimit))
+		// r.tgbot.Handle(ev, r.repeater, bot.MessageCounter(r.msgCounter, r.chatRandLimit))
+		bot.ModRegister.AddTgEventHandler(ev, bot.MessageCounter(r.msgCounter, r.chatRandLimit)(r.repeater))
 	}
 
 }

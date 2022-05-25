@@ -18,6 +18,7 @@ type tweetForwarder struct {
 	logger         *logrus.Entry
 	evhub          *event.Dispatcher
 	scheduledTasks *utils.ScheduledTaskGroup
+	wg             *sync.WaitGroup
 }
 
 func newTweetForwarder() *tweetForwarder {
@@ -26,6 +27,7 @@ func newTweetForwarder() *tweetForwarder {
 		logger:         utils.NewLogger().WithField("service", "tweetlistener"),
 		evhub:          event.New(),
 		scheduledTasks: utils.NewScheduledTaskGroup("tweet_update"),
+		wg:             &sync.WaitGroup{},
 	}
 
 	// register periodical poller
@@ -82,12 +84,13 @@ func (tl *tweetForwarder) Shutdown() {
 	if err != nil {
 		tl.logger.Error(err)
 	}
+
 	tl.scheduledTasks.WaitAndStop()
+
+	tl.wg.Wait()
 }
 
 func (tl *tweetForwarder) poll() error {
-	var wg sync.WaitGroup // for chats polling
-
 	// get all chats which subscribed various tweeters
 	chats, err := tl.repo.GetAllChat(context.Background())
 	if err != nil {
@@ -97,17 +100,15 @@ func (tl *tweetForwarder) poll() error {
 
 	// go through each chat
 	for _, chatid := range chats {
-		wg.Add(1)
-		go tl.updateChatSubs(chatid, &wg)
+		tl.wg.Add(1)
+		go tl.updateChatSubs(chatid)
 	}
-
-	wg.Wait()
 
 	return nil
 }
 
-func (tl *tweetForwarder) updateChatSubs(chatid int64, joinwg *sync.WaitGroup) error {
-	defer joinwg.Done()
+func (tl *tweetForwarder) updateChatSubs(chatid int64) error {
+	defer tl.wg.Done()
 
 	subs, err := tl.repo.GetAllChatSub(context.Background(), chatid)
 	if err != nil {
