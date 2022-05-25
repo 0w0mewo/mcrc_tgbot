@@ -24,7 +24,7 @@ type modMan struct {
 	lock       *sync.RWMutex
 	mods       map[string]Module
 	reloadTick *time.Ticker
-	handlers   map[string][]telebot.HandlerFunc
+	handlers   map[string][]telebot.HandlerFunc // registered handlers
 }
 
 func newModMan() *modMan {
@@ -50,7 +50,8 @@ func (mm *modMan) AddTgEventHandler(_type string, handler telebot.HandlerFunc) {
 	mm.lock.Lock()
 	defer mm.lock.Unlock()
 
-	if mm.handlers[_type] == nil {
+	// make sure the event space exist
+	if _, exist := mm.handlers[_type]; !exist {
 		mm.handlers[_type] = make([]telebot.HandlerFunc, 0)
 	}
 
@@ -65,6 +66,11 @@ func (mm *modMan) AddTgEventHandler(_type string, handler telebot.HandlerFunc) {
 func (mm *modMan) GetHandlers(_type string) []telebot.HandlerFunc {
 	mm.lock.RLock()
 	defer mm.lock.RUnlock()
+
+	// make sure the event handler is not null
+	if _, exist := mm.handlers[_type]; !exist {
+		return []telebot.HandlerFunc{defaultHandler}
+	}
 
 	return mm.handlers[_type]
 }
