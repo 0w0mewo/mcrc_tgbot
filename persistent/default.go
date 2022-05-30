@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/0w0mewo/mcrc_tgbot/persistent/ent"
-	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 )
 

@@ -5,11 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/0w0mewo/mcrc_tgbot/persistent"
-	"github.com/0w0mewo/mcrc_tgbot/utils"
 	"gopkg.in/telebot.v3"
 )
 
@@ -70,30 +68,6 @@ func StoreGrpMessage(repo persistent.StoredTeleMsgRepo) telebot.MiddlewareFunc {
 			}
 		donext:
 			return next(c)
-		}
-	}
-}
-
-func MessageCounter(cnter *utils.Counter, randlimit *utils.RandomMap) telebot.MiddlewareFunc {
-	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
-		return func(c telebot.Context) error {
-			msg := c.Message()
-			chatId := strconv.FormatInt(msg.Chat.ID, 10)
-
-			// load random message count limit of a chat
-			randlimit.Get(chatId)
-
-			cnter.Inc(chatId)
-
-			// if the current amount of message count over the limit
-			if cnter.Get(chatId) > randlimit.Get(chatId) {
-				randlimit.Generate(chatId)
-				cnter.Reset(chatId)
-
-				return next(c)
-			}
-
-			return nil
 		}
 	}
 }

@@ -111,7 +111,7 @@ func (cts *chatTweetSubSqlStorage) Exist(ctx context.Context, chatid int64, twui
 }
 
 func (cts *chatTweetSubSqlStorage) GetAllChatSub(ctx context.Context,
-	chatid int64) ([]*model.ChatTweetSubscription, error) {
+	chatid int64) ([]model.ChatTweetSubscription, error) {
 	subs, err := cts.dbconn.ChatTweetSubscription.Query().
 		Where(chattweetsubscription.ChatID(chatid)).
 		All(ctx)
@@ -119,10 +119,10 @@ func (cts *chatTweetSubSqlStorage) GetAllChatSub(ctx context.Context,
 		return nil, err
 	}
 
-	res := make([]*model.ChatTweetSubscription, 0, len(subs))
+	res := make([]model.ChatTweetSubscription, 0, len(subs))
 
 	for _, cs := range subs {
-		res = append(res, &model.ChatTweetSubscription{
+		res = append(res, model.ChatTweetSubscription{
 			Id:        cs.ID,
 			ChatId:    cs.ChatID,
 			TweeterId: cs.TweeterID,
@@ -133,7 +133,7 @@ func (cts *chatTweetSubSqlStorage) GetAllChatSub(ctx context.Context,
 	return res, nil
 }
 
-func (cts *chatTweetSubSqlStorage) GetAllChat(ctx context.Context) ([]int64, error) {
+func (cts *chatTweetSubSqlStorage) GetAllChatIds(ctx context.Context) ([]int64, error) {
 	res, err := cts.dbconn.ChatTweetSubscription.Query().
 		GroupBy(chattweetsubscription.FieldChatID).
 		Ints(ctx)
@@ -169,35 +169,37 @@ func (cts *chatTweetSubSqlStorage) UpdateLastTweet(ctx context.Context, chatid i
 	return err
 }
 
-func (cts *chatTweetSubSqlStorage) GetTweeterOfChatSub(ctx context.Context, id int) (*model.TweetUser, error) {
+func (cts *chatTweetSubSqlStorage) GetTweeterOfChatSub(ctx context.Context, id int) (model.TweetUser, error) {
 	chatsub, err := cts.dbconn.ChatTweetSubscription.Get(ctx, id)
 	if err != nil {
-		return nil, err
+		return model.TweetUser{}, err
 	}
 
 	twu, err := cts.dbconn.ChatTweetSubscription.QuerySubscribedTweeter(chatsub).
 		First(ctx)
 	if err != nil {
-		return nil, err
+		return model.TweetUser{}, err
 	}
 
-	return &model.TweetUser{
+	return model.TweetUser{
 		Id:       twu.ID,
 		UserName: twu.Username,
 	}, nil
 
 }
 
-func (cts *chatTweetSubSqlStorage) GetAllSubscribeeByChatId(ctx context.Context, chatid int64) ([]*model.TweetUser, error) {
-	res, err := cts.dbconn.ChatTweetSubscription.Query().Where(chattweetsubscription.ChatID(chatid)).QuerySubscribedTweeter().All(ctx)
+func (cts *chatTweetSubSqlStorage) GetAllSubscribeeByChatId(ctx context.Context, chatid int64) ([]model.TweetUser, error) {
+	res, err := cts.dbconn.ChatTweetSubscription.Query().
+		Where(chattweetsubscription.ChatID(chatid)).
+		QuerySubscribedTweeter().All(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := make([]*model.TweetUser, 0, len(res))
+	ret := make([]model.TweetUser, 0, len(res))
 
 	for _, twu := range res {
-		ret = append(ret, &model.TweetUser{Id: twu.ID, UserName: twu.Username})
+		ret = append(ret, model.TweetUser{Id: twu.ID, UserName: twu.Username})
 	}
 
 	return ret, nil

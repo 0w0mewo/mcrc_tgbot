@@ -6,7 +6,7 @@ require (
 	entgo.io/ent v0.10.1
 	github.com/agoalofalife/event v0.2.0
 	github.com/fsnotify/fsnotify v1.5.1
-	github.com/lib/pq v1.10.6
+	github.com/kevwan/mapreduce/v2 v2.1.1
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/n0madic/twitter-scraper v0.0.0-20220317100158-97b84826bab9
 	github.com/pkg/errors v0.9.1

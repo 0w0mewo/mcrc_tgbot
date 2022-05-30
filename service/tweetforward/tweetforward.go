@@ -10,6 +10,7 @@ import (
 	"github.com/0w0mewo/mcrc_tgbot/persistent"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
 	"github.com/agoalofalife/event"
+	mr "github.com/kevwan/mapreduce/v2"
 	"github.com/sirupsen/logrus"
 )
 
@@ -36,7 +37,7 @@ func newTweetForwarder() *tweetForwarder {
 	return tf
 }
 
-func (tl *tweetForwarder) GetSubscriptions(chatid int64) ([]*model.TweetUser, error) {
+func (tl *tweetForwarder) GetSubscriptions(chatid int64) ([]model.TweetUser, error) {
 	return tl.repo.GetAllSubscribeeByChatId(context.Background(), chatid)
 }
 
@@ -92,7 +93,7 @@ func (tl *tweetForwarder) Shutdown() {
 
 func (tl *tweetForwarder) poll() error {
 	// get all chats which subscribed various tweeters
-	chats, err := tl.repo.GetAllChat(context.Background())
+	chats, err := tl.repo.GetAllChatIds(context.Background())
 	if err != nil {
 		tl.logger.Errorln(err)
 		return err
@@ -116,36 +117,45 @@ func (tl *tweetForwarder) updateChatSubs(chatid int64) error {
 		return err
 	}
 
-	// go through each subcribee in a chat
-	for _, sub := range subs {
-		// search the subscribed tweeter from DB by twitter user id
-		// and convert to username that is accecptable by twitterscraper
-		tu, err := tl.repo.GetTweeterOfChatSub(context.Background(), sub.Id)
-		if err != nil {
-			tl.logger.Warnln(err)
-			continue
-		}
-		twu, err := ScrapLastTweet(tu.UserName)
-		if err != nil {
-			tl.logger.WithField("subscribee username", tu.UserName).Warnln(err)
-			continue
-		}
+	// play with mapreduece ForEach
+	mr.ForEach(
+		func(source chan<- any) {
+			for _, sub := range subs {
+				source <- sub
+			}
+		},
+		func(item any) {
+			sub := item.(model.ChatTweetSubscription)
 
-		// new tweet
-		if twurl := twu.LastTweet; twurl != sub.LastTweet {
-			// publish the new tweet url to event listeners
-			tl.logger.
-				WithField("tweet url", twurl).
-				WithField("tochat", chatid).
-				Println("updated tweet")
+			// search the subscribed tweeter from DB by twitter user id
+			// and convert to username that is accecptable by twitterscraper
+			tu, err := tl.repo.GetTweeterOfChatSub(context.Background(), sub.Id)
+			if err != nil {
+				tl.logger.Warnln(err)
+				return
+			}
+			twu, err := ScrapLastTweet(tu.UserName)
+			if err != nil {
+				tl.logger.WithField("subscribee username", tu.UserName).Warnln(err)
+				return
+			}
 
-			tl.evhub.Fire("newtweet", chatid, twurl)
+			// new tweet
+			if twurl := twu.LastTweet; twurl != sub.LastTweet {
+				// publish the new tweet url to event listeners
+				tl.logger.
+					WithField("tweet url", twurl).
+					WithField("tochat", chatid).
+					Println("updated tweet")
 
-			// update state
-			tl.repo.UpdateLastTweet(context.Background(), chatid, tu.Id, twurl)
-		}
+				tl.evhub.Fire("newtweet", chatid, twurl)
 
-	}
+				// update state
+				tl.repo.UpdateLastTweet(context.Background(), chatid, tu.Id, twurl)
+			}
+
+		},
+	)
 
 	return nil
 

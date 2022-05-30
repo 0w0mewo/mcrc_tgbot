@@ -1,6 +1,8 @@
 package repeater
 
 import (
+	"strconv"
+
 	"github.com/0w0mewo/mcrc_tgbot/bot"
 	"github.com/0w0mewo/mcrc_tgbot/config"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
@@ -61,8 +63,7 @@ func (r *Repeater) Reload() {
 		if r.tgbot == nil {
 			return
 		}
-		// r.tgbot.Handle(ev, r.repeater, bot.MessageCounter(r.msgCounter, r.chatRandLimit))
-		bot.ModRegister.AddTgEventHandler(ev, bot.MessageCounter(r.msgCounter, r.chatRandLimit)(r.repeater))
+		bot.ModRegister.AddTgEventHandler(ev, r.handleMessageLimit(r.repeater))
 	}
 
 }
@@ -82,10 +83,33 @@ func (r *Repeater) repeater(c telebot.Context) error {
 		return c.Send(stickerMsg)
 	}
 
-	println("called")
-
 	// random qutoe for other type of messages
 	m := utils.RandChoice(r.conf.qutoes)
 	return c.Send(m)
 
+}
+
+func (r *Repeater) handleMessageLimit(next telebot.HandlerFunc) telebot.HandlerFunc {
+	return func(c telebot.Context) error {
+		msg := c.Message()
+		chatId := strconv.FormatInt(msg.Chat.ID, 10)
+
+		randlimit := r.chatRandLimit
+		cnter := r.msgCounter
+
+		// load random message count limit of a chat
+		randlimit.Get(chatId)
+
+		cnter.Inc(chatId)
+
+		// if the current amount of message count over the limit
+		if cnter.Get(chatId) > randlimit.Get(chatId) {
+			randlimit.Generate(chatId)
+			cnter.Reset(chatId)
+
+			return next(c)
+		}
+
+		return nil
+	}
 }

@@ -17,7 +17,7 @@ func Unsubscribe(chatid int64, username string) error {
 	return defaultForwarder.Unsubscribe(chatid, username)
 }
 
-func GetSubscriptions(chatid int64) ([]*model.TweetUser, error) {
+func GetSubscriptions(chatid int64) ([]model.TweetUser, error) {
 	return defaultForwarder.GetSubscriptions(chatid)
 }
 

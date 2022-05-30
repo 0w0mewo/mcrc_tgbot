@@ -104,7 +104,7 @@ func (mrs *teleMsgRecSqlStorage) StoreMsg(ctx context.Context, chatid int64, cha
 	if err != nil {
 		// sender info had already recorded
 		if ent.IsConstraintError(err) {
-			goto recordmsg
+			// ignore constraint shit
 		} else {
 			tx.Rollback()
 			return err
@@ -119,14 +119,13 @@ func (mrs *teleMsgRecSqlStorage) StoreMsg(ctx context.Context, chatid int64, cha
 	if err != nil {
 		// chat info had already recorded
 		if ent.IsConstraintError(err) {
-			goto recordmsg
+			// ignore constraint shit
 		} else {
 			tx.Rollback()
 			return err
 		}
 	}
 
-recordmsg:
 	_, err = tx.Message.Create().
 		SetChatID(chatid).
 		SetSenderID(senderid).
