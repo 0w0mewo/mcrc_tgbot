@@ -10,7 +10,6 @@ import (
 	"github.com/0w0mewo/mcrc_tgbot/persistent"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
 	"github.com/agoalofalife/event"
-	mr "github.com/kevwan/mapreduce/v2"
 	"github.com/sirupsen/logrus"
 )
 
@@ -117,45 +116,35 @@ func (tl *tweetForwarder) updateChatSubs(chatid int64) error {
 		return err
 	}
 
-	// play with mapreduece ForEach
-	mr.ForEach(
-		func(source chan<- any) {
-			for _, sub := range subs {
-				source <- sub
-			}
-		},
-		func(item any) {
-			sub := item.(model.ChatTweetSubscription)
+	for _, sub := range subs {
+		// search the subscribed tweeter from DB by twitter user id
+		// and convert to username that is accecptable by twitterscraper
+		tu, err := tl.repo.GetTweeterOfChatSub(context.Background(), sub.Id)
+		if err != nil {
+			tl.logger.Warnln(err)
+			continue
+		}
+		twu, err := ScrapLastTweet(tu.UserName)
+		if err != nil {
+			tl.logger.WithField("subscribee username", tu.UserName).Warnln(err)
+			continue
+		}
 
-			// search the subscribed tweeter from DB by twitter user id
-			// and convert to username that is accecptable by twitterscraper
-			tu, err := tl.repo.GetTweeterOfChatSub(context.Background(), sub.Id)
-			if err != nil {
-				tl.logger.Warnln(err)
-				return
-			}
-			twu, err := ScrapLastTweet(tu.UserName)
-			if err != nil {
-				tl.logger.WithField("subscribee username", tu.UserName).Warnln(err)
-				return
-			}
+		// new tweet
+		if twurl := twu.LastTweet; twurl != sub.LastTweet {
+			// publish the new tweet url to event listeners
+			tl.logger.
+				WithField("tweet url", twurl).
+				WithField("tochat", chatid).
+				Println("updated tweet")
 
-			// new tweet
-			if twurl := twu.LastTweet; twurl != sub.LastTweet {
-				// publish the new tweet url to event listeners
-				tl.logger.
-					WithField("tweet url", twurl).
-					WithField("tochat", chatid).
-					Println("updated tweet")
+			tl.evhub.Fire("newtweet", chatid, twurl)
 
-				tl.evhub.Fire("newtweet", chatid, twurl)
+			// update state
+			tl.repo.UpdateLastTweet(context.Background(), chatid, tu.Id, twurl)
+		}
 
-				// update state
-				tl.repo.UpdateLastTweet(context.Background(), chatid, tu.Id, twurl)
-			}
-
-		},
-	)
+	}
 
 	return nil
 

@@ -16,7 +16,7 @@ func init() {
 	bot.ModRegister.RegistryMod(r)
 }
 
-// group message random repeater
+// tweet notifier
 type Notifier struct {
 	tgbot *telebot.Bot
 

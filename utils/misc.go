@@ -29,6 +29,17 @@ func RandomBetween(start int, end int) int {
 	return rand.Intn(end-start) + start
 }
 
+// check an target is in a slice
+func IsInSlice[T comparable](elements []T, target T) bool {
+	for _, e := range elements {
+		if e == target {
+			return true
+		}
+	}
+
+	return false
+}
+
 // random choice element
 func RandChoice[T any](l []T) T {
 	randIndex := RandomBetween(0, len(l)-1)

@@ -3,3 +3,5 @@ data/
 .vscode/
 vendor
 my-docker-compose.yml
+*.sh
+config.yaml
