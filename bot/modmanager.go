@@ -3,9 +3,8 @@ package bot
 import (
 	"errors"
 	"sync"
-	"time"
 
-	constant "github.com/0w0mewo/mcrc_tgbot/const"
+	"github.com/0w0mewo/mcrc_tgbot/config"
 	"gopkg.in/telebot.v3"
 )
 
@@ -21,29 +20,35 @@ type Module interface {
 }
 
 type modMan struct {
-	lock       *sync.RWMutex
-	mods       map[string]Module
-	reloadTick *time.Ticker
-	handlers   map[string][]telebot.HandlerFunc // registered handlers
+	lock     *sync.RWMutex
+	mods     map[string]Module
+	handlers map[string][]telebot.HandlerFunc // registered handlers
 }
 
 func newModMan() *modMan {
 	ret := &modMan{
-		mods:       make(map[string]Module),
-		lock:       &sync.RWMutex{},
-		reloadTick: time.NewTicker(constant.MOD_RELOAD_INTERVAL),
-		handlers:   make(map[string][]telebot.HandlerFunc),
+		mods:     make(map[string]Module),
+		lock:     &sync.RWMutex{},
+		handlers: make(map[string][]telebot.HandlerFunc),
 	}
 
-	go func(mods map[string]Module) {
-		for range ret.reloadTick.C {
-			for _, mod := range mods {
-				mod.Reload()
-			}
+	// reload modules when config file changed
+	go func() {
+		for range config.Config.ConfigChanged() {
+			ret.ReloadModules()
 		}
-	}(ret.mods)
+	}()
 
 	return ret
+}
+
+func (mm *modMan) ReloadModules() {
+	mm.lock.Lock()
+	defer mm.lock.Unlock()
+
+	for _, mod := range mm.mods {
+		mod.Reload()
+	}
 }
 
 func (mm *modMan) AddTgEventHandler(_type string, handler telebot.HandlerFunc) {

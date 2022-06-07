@@ -19,10 +19,10 @@ type configManager struct {
 	cfg           ConfigType         // config file map
 	regTable      map[string]IConfig // registered configuration
 	rwlock        sync.RWMutex
+	changed       chan bool
 }
 
 func newConfigManager(cfgfile string) *configManager {
-
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		panic(err)
@@ -38,6 +38,7 @@ func newConfigManager(cfgfile string) *configManager {
 		regTable:      make(map[string]IConfig),
 		cfg:           make(ConfigType),
 		cfgFile:       cfgfile,
+		changed:       make(chan bool),
 	}
 
 	cm.loadConfig()
@@ -48,12 +49,17 @@ func newConfigManager(cfgfile string) *configManager {
 			case ev := <-watcher.Events:
 				if ev.Op == fsnotify.Write {
 					cm.Reload()
+					cm.changed <- true
 				}
 			}
 		}
 	}(watcher.Events)
 
 	return cm
+}
+
+func (cm *configManager) ConfigChanged() chan bool {
+	return cm.changed
 }
 
 func (cm *configManager) GetConfigFile() ConfigType {
