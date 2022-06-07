@@ -53,6 +53,7 @@ func (mm *modMan) AddTgEventHandler(_type string, handler telebot.HandlerFunc) {
 	// make sure the event space exist
 	if _, exist := mm.handlers[_type]; !exist {
 		mm.handlers[_type] = make([]telebot.HandlerFunc, 0)
+		listenTo = append(listenTo, _type)
 	}
 
 	if handler == nil {
