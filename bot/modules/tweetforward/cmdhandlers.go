@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/0w0mewo/mcrc_tgbot/bot/modules/commands/cmds"
 	"github.com/0w0mewo/mcrc_tgbot/model"
 	tweetforward "github.com/0w0mewo/mcrc_tgbot/service/tweetforward"
 	"github.com/pkg/errors"
 	"gopkg.in/telebot.v3"
 )
+
+var ErrNotEnoughArguments = errors.New("not enough args")
 
 func (t *Notifier) tweetSub(c telebot.Context) error {
 
@@ -26,7 +27,7 @@ func (t *Notifier) tweetSub(c telebot.Context) error {
 
 	default:
 		c.Send("usage: /tweetsub <twitter username>")
-		return cmds.ErrNotEnoughArguments
+		return nil
 	}
 
 	err := tweetforward.Subscribe(model.Chat{Id: c.Chat().ID, Name: c.Chat().Title}, twuname)
@@ -64,7 +65,7 @@ func (t *Notifier) tweetUnSub(c telebot.Context) error {
 		twuname = args[0]
 	default:
 		c.Send("usage: /tweetunsub <twitter username>")
-		return cmds.ErrNotEnoughArguments
+		return ErrNotEnoughArguments
 	}
 
 	err := tweetforward.Unsubscribe(c.Chat().ID, twuname)

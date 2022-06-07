@@ -5,3 +5,4 @@ vendor
 my-docker-compose.yml
 *.sh
 config.yaml
+module_gen/*
