@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"sync"
 	"time"
 
 	"github.com/0w0mewo/mcrc_tgbot/persistent"
@@ -90,13 +91,19 @@ func processHandlers(ev string) telebot.HandlerFunc {
 	return func(c telebot.Context) (err error) {
 		// process all registered handlers
 		handlers := ModRegister.GetTgEventHandlers(ev)
+
+		var wg sync.WaitGroup
+
+		wg.Add(len(handlers))
 		for _, handler := range handlers {
-			err = handler(c)
-			if err != nil {
-				return
-			}
+			go func(handler telebot.HandlerFunc) {
+				defer wg.Done()
+				err = handler(c)
+			}(handler)
+
 		}
 
+		wg.Wait()
 		return
 	}
 }
