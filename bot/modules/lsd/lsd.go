@@ -22,7 +22,7 @@ var ErrNotEnoughArguments = errors.New("not enough args")
 func init() {
 	// load config and regsiter to manager
 	cfg := ConfigFrom(config.Config.GetConfigFile())
-	config.Config.RegisterModuleConfig("mod.lineStickerDown", cfg)
+	config.Config.RegisterModuleConfig("mod.lsd", cfg)
 
 	// load module
 	m := &lineStickerDown{
@@ -54,7 +54,7 @@ func (ma *lineStickerDown) Start(b *bot.Bot) {
 }
 
 func (ma *lineStickerDown) Name() string {
-	return "mod.lineStickerDown"
+	return "mod.lsd"
 }
 
 func (ma *lineStickerDown) Stop(b *bot.Bot) {
