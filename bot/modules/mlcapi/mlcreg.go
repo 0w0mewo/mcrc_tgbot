@@ -42,6 +42,9 @@ func (ma *MlcApi) Start(b *bot.Bot) {
 	}
 
 	ma.Reload()
+
+	bot.ModRegister.AddTgEventHandler("/mlcreg", ma.mlcreg)
+
 	ma.logger.Printf("%s loaded", ma.Name())
 }
 
@@ -57,8 +60,6 @@ func (ma *MlcApi) Stop(b *bot.Bot) {
 func (ma *MlcApi) Reload() {
 	ma.mlc.SetManagerToken(ma.conf.managerToken)
 	ma.mlc.SetStaffToken(ma.conf.staffToken)
-
-	bot.ModRegister.AddTgEventHandler("/mlcreg", ma.mlcreg)
 
 }
 

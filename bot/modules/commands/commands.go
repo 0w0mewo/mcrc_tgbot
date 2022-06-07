@@ -46,6 +46,12 @@ func (c *Commander) Start(b *bot.Bot) {
 
 	c.Reload()
 
+	// load command handlers
+	regtable := c.cman.GetRegTable()
+	for cmd, handler := range regtable {
+		bot.ModRegister.AddTgEventHandler(cmd, telebot.HandlerFunc(handler))
+	}
+
 	c.logger.Printf("%s loaded", c.Name())
 }
 
@@ -60,10 +66,5 @@ func (c *Commander) Stop(b *bot.Bot) {
 }
 
 func (c *Commander) Reload() {
-	// load command handlers
-	regtable := c.cman.GetRegTable()
-	for cmd, handler := range regtable {
-		c.tgbot.Handle(cmd, telebot.HandlerFunc(handler))
-	}
 
 }

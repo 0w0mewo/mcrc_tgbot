@@ -42,6 +42,15 @@ func (r *Repeater) Start(b *bot.Bot) {
 	}
 
 	r.Reload()
+
+	// set repeater on text and sticker message
+	for _, ev := range []string{telebot.OnText, telebot.OnSticker} {
+		if r.tgbot == nil {
+			return
+		}
+		bot.ModRegister.AddTgEventHandler(ev, r.handleMessageLimit(r.repeater))
+	}
+
 	r.logger.Printf("%s loaded", r.Name())
 }
 
@@ -57,14 +66,6 @@ func (r *Repeater) Stop(b *bot.Bot) {
 func (r *Repeater) Reload() {
 	r.chatRandLimit.SetStart(r.conf.randstart)
 	r.chatRandLimit.SetEnd(r.conf.randend)
-
-	// set repeater on text and sticker message
-	for _, ev := range []string{telebot.OnText, telebot.OnSticker} {
-		if r.tgbot == nil {
-			return
-		}
-		bot.ModRegister.AddTgEventHandler(ev, r.handleMessageLimit(r.repeater))
-	}
 
 }
 

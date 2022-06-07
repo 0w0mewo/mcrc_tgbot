@@ -38,6 +38,9 @@ func (t *Notifier) Start(b *bot.Bot) {
 		return err
 	})
 
+	bot.ModRegister.AddTgEventHandler("/tweetsub", t.tweetSub)
+	bot.ModRegister.AddTgEventHandler("/tweetunsub", t.tweetUnSub)
+
 	t.logger.Printf("%s loaded", t.Name())
 }
 
@@ -53,7 +56,5 @@ func (t *Notifier) Stop(b *bot.Bot) {
 }
 
 func (t *Notifier) Reload() {
-	t.tgbot.Handle("/tweetsub", t.tweetSub)
-	t.tgbot.Handle("/tweetunsub", t.tweetUnSub)
 
 }
