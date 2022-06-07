@@ -3,8 +3,10 @@ package mlcapi
 import "github.com/0w0mewo/mcrc_tgbot/config"
 
 type mlcApiConf struct {
-	config config.ConfigType
-	lockto []string
+	config       config.ConfigType
+	lockto       []string
+	staffToken   string
+	managerToken string
 }
 
 func ConfigFrom(c config.ConfigType) *mlcApiConf {
@@ -30,7 +32,21 @@ func (mc *mlcApiConf) GetMasters() []string {
 
 }
 
+func (mc *mlcApiConf) GetStaffToken() string {
+	token := mc.config["mlcapi"].(config.ConfigType)["token"].((config.ConfigType))["staff"].(string)
+
+	return token
+}
+
+func (mc *mlcApiConf) GetManagerToken() string {
+	token := mc.config["mlcapi"].(config.ConfigType)["token"].((config.ConfigType))["man"].(string)
+
+	return token
+}
+
 func (mc *mlcApiConf) Reload() {
 	mc.lockto = mc.GetMasters()
+	mc.staffToken = mc.GetStaffToken()
+	mc.managerToken = mc.GetManagerToken()
 
 }

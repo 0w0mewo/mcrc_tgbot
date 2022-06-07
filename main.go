@@ -4,6 +4,10 @@ import (
 	"os"
 
 	"github.com/0w0mewo/mcrc_tgbot/bot"
+	_ "github.com/0w0mewo/mcrc_tgbot/bot/modules/commands"
+	_ "github.com/0w0mewo/mcrc_tgbot/bot/modules/mlcapi"
+	_ "github.com/0w0mewo/mcrc_tgbot/bot/modules/repeater"
+	_ "github.com/0w0mewo/mcrc_tgbot/bot/modules/tweetforward"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
 	"github.com/sirupsen/logrus"
 )

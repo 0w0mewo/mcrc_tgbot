@@ -14,17 +14,38 @@ type MlcApiClient struct {
 	staffToken   string
 	managerToken string
 	hc           *http.Client
+	apilist      map[string]any
 }
 
 func NewMlcApiClient(staffToken, managerToken string) *MlcApiClient {
-	return &MlcApiClient{
+	client := &MlcApiClient{
 		staffToken:   staffToken,
 		managerToken: managerToken,
 		hc:           http.DefaultClient,
 	}
+
+	client.apilist = map[string]any{
+		API_BAN:       client.Ban,
+		API_UNBAN:     client.UnBan,
+		API_DELTEUSER: client.Delete,
+		API_GETINFO:   client.GetInfo,
+		API_CHANGEPW:  client.ChangePassword,
+		API_RESET:     client.ResetHWID,
+		API_REGISTER:  client.Register,
+	}
+
+	return client
 }
 
-func (mr *MlcApiClient) buildReq(httpmethod string, reqtype string, endpoint string, apireq UserGeneralReq) (req *http.Request, err error) {
+func (mr *MlcApiClient) SetStaffToken(token string) {
+	mr.staffToken = token
+}
+
+func (mr *MlcApiClient) SetManagerToken(token string) {
+	mr.managerToken = token
+}
+
+func (mr *MlcApiClient) buildStaffReq(httpmethod string, reqtype string, endpoint string, apireq UserGeneralReq) (req *http.Request, err error) {
 	form := url.Values{}
 	form.Add("type", reqtype)
 	form.Add("username", apireq.UserName)
@@ -61,7 +82,7 @@ func (mr *MlcApiClient) buildReq(httpmethod string, reqtype string, endpoint str
 }
 
 func (mr *MlcApiClient) do(reqtype string, endpoint string, r UserGeneralReq) (*UserGeneralResp, error) {
-	req, err := mr.buildReq("POST", reqtype, endpoint, r)
+	req, err := mr.buildStaffReq("POST", reqtype, endpoint, r)
 	if err != nil {
 		return nil, errors.Wrap(err, "buildreq")
 	}

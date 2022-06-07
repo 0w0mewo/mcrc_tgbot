@@ -8,3 +8,11 @@ repeater:
   rand:
     start: 20
     end: 50
+
+mlcapi:
+  lockto:
+    - example user
+    - another user
+  token:
+    staff: sometoken
+    man: sometoken

@@ -7,16 +7,6 @@ import (
 	"strings"
 )
 
-var apilist = map[string]any{
-	API_BAN:       Ban,
-	API_UNBAN:     UnBan,
-	API_DELTEUSER: Delete,
-	API_GETINFO:   GetInfo,
-	API_CHANGEPW:  ChangePassword,
-	API_RESET:     ResetHWID,
-	API_REGISTER:  Register,
-}
-
 var defaultClient *MlcApiClient
 
 func init() {
@@ -66,7 +56,7 @@ func GetInfo(username string) (*UserInfo, error) {
 }
 
 // call mlc api with api name
-func ApiCall(apiname string, args ...string) (ret any, err error) {
+func ApiCall(client *MlcApiClient, apiname string, args ...string) (ret any, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			ret = nil
@@ -79,31 +69,48 @@ func ApiCall(apiname string, args ...string) (ret any, err error) {
 			}
 		}
 	}()
-	apicall := reflect.ValueOf(apilist[apiname])
+	apicall := reflect.ValueOf(client.apilist[apiname])
 	if apicall.IsNil() {
 		return nil, errors.New("unsupported API")
 	}
 
 	parmas := make([]reflect.Value, 0, len(args))
 
-	for i := 0; i < reflect.TypeOf(apilist[apiname]).NumIn() && i < len(args); i++ {
+	for i := 0; i < reflect.TypeOf(client.apilist[apiname]).NumIn() && i < len(args); i++ {
 		parmas = append(parmas, reflect.ValueOf(args[i]))
 
 	}
 
 	rets := apicall.Call(parmas)
+
 	if len(rets) < 2 {
-		if rets[0].Interface() == nil {
+		err = reflectValAsError(rets[0])
+		if err != nil {
+			ret = nil
 			return
 		}
-		return nil, rets[0].Interface().(error)
-	}
 
-	if rets[1].Interface() == nil {
-		ret = rets[0].Interface()
 		return
 	}
 
-	return nil, rets[1].Interface().(error)
+	err = reflectValAsError(rets[1])
+	if err != nil {
+		ret = nil
+		return
+	}
 
+	ret = rets[0].Interface()
+	return
+}
+
+func reflectValAsError(val reflect.Value) error {
+	v := val.Interface()
+	switch err := v.(type) {
+	case error:
+		return err
+	case nil:
+		return nil
+	default:
+		return ErrUnknown
+	}
 }

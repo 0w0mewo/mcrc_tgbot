@@ -19,8 +19,9 @@ func init() {
 
 	// load module
 	m := &MlcApi{
-		Logger: utils.NewLogger(),
-		Conf:   cfg,
+		logger: utils.NewLogger(),
+		conf:   cfg,
+		mlc:    mlcapi.NewMlcApiClient("", ""),
 	}
 	bot.ModRegister.RegistryMod(m)
 
@@ -28,8 +29,9 @@ func init() {
 
 type MlcApi struct {
 	tgbot   *telebot.Bot
-	Conf    *mlcApiConf
-	Logger  *logrus.Logger
+	conf    *mlcApiConf
+	logger  *logrus.Logger
+	mlc     *mlcapi.MlcApiClient
 	running bool
 }
 
@@ -40,7 +42,7 @@ func (ma *MlcApi) Start(b *bot.Bot) {
 	}
 
 	ma.Reload()
-	ma.Logger.Printf("%s loaded", ma.Name())
+	ma.logger.Printf("%s loaded", ma.Name())
 }
 
 func (ma *MlcApi) Name() string {
@@ -49,17 +51,20 @@ func (ma *MlcApi) Name() string {
 
 func (ma *MlcApi) Stop(b *bot.Bot) {
 	ma.running = false
-	ma.Logger.Printf("%s unloaded", ma.Name())
+	ma.logger.Printf("%s unloaded", ma.Name())
 }
 
 func (ma *MlcApi) Reload() {
-	ma.tgbot.Handle("/mlcreg", ma.mlcreg)
+	ma.mlc.SetManagerToken(ma.conf.managerToken)
+	ma.mlc.SetStaffToken(ma.conf.staffToken)
+
+	bot.ModRegister.AddTgEventHandler("/mlcreg", ma.mlcreg)
 
 }
 
 func (ma *MlcApi) mlcreg(c telebot.Context) error {
 	if sender := c.Sender(); sender != nil {
-		if !utils.IsInSlice(ma.Conf.lockto, sender.Username) {
+		if !utils.IsInSlice(ma.conf.lockto, sender.Username) {
 			return c.Send("you are not my master!!!")
 		}
 	}
@@ -71,7 +76,7 @@ func (ma *MlcApi) mlcreg(c telebot.Context) error {
 
 	}
 
-	res, err := mlcapi.ApiCall(args[0], args[1:]...)
+	res, err := mlcapi.ApiCall(ma.mlc, args[0], args[1:]...)
 	if err != nil {
 		return c.Send(err.Error())
 	}
