@@ -2,11 +2,13 @@ package persistent
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
-	"github.com/0w0mewo/mcrc_tgbot/model"
-	"github.com/0w0mewo/mcrc_tgbot/persistent/ent"
-	"github.com/0w0mewo/mcrc_tgbot/persistent/ent/message"
+	models "github.com/0w0mewo/mcrc_tgbot/model"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 const (
@@ -39,108 +41,82 @@ func MediaTypeFromString(s string) int {
 var _ StoredTeleMsgRepo = &teleMsgRecSqlStorage{}
 
 type teleMsgRecSqlStorage struct {
-	dbconn *ent.Client
+	conn *sql.DB
 }
 
-func NewTeleMsgSqlStorage(dbclient *ent.Client) StoredTeleMsgRepo {
-	ret := &teleMsgRecSqlStorage{
-		dbconn: dbclient,
+func NewTeleMsgSqlStorage(db *sql.DB) *teleMsgRecSqlStorage {
+	return &teleMsgRecSqlStorage{
+		conn: db,
 	}
 
-	return ret
 }
 
-func (mrs *teleMsgRecSqlStorage) Close() error {
-	return mrs.dbconn.Close()
-}
-
-func (mrs *teleMsgRecSqlStorage) GetChatMessages(ctx context.Context, chatid int64,
-	page int, pagesize int) ([]*model.TeleMsg, error) {
-	// get limited number of messages
-	pagedMsgs, err := mrs.dbconn.Message.Query().
-		Where(message.ChatID(chatid)).
-		Limit(pagesize).Offset(page).
-		All(ctx)
+func (this *teleMsgRecSqlStorage) StoreMsg(ctx context.Context, chatid int64, chatname string, senderid int64, sendername string, msg []byte, msgType int, timestamp time.Time) (err error) {
+	tx, err := this.conn.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	res := make([]*model.TeleMsg, 0, len(pagedMsgs))
-
-	for _, msg := range pagedMsgs {
-		chat, err := msg.QueryFromChat().First(ctx)
-		if err != nil {
-			continue
-		}
-		sender, err := msg.QueryFromSender().First(ctx)
-		if err != nil {
-			continue
-		}
-
-		res = append(res, &model.TeleMsg{
-			ChatName:       chat.Name,
-			SenderUserName: sender.Username,
-			Type:           msg.Type,
-			Message:        msg.Msg,
-			TimeStamp:      msg.Timestamp,
-		})
+	// upsert chat info
+	chat := models.Chat{
+		ID:   chatid,
+		Name: chatname,
 	}
-
-	return res, nil
-}
-
-func (mrs *teleMsgRecSqlStorage) StoreMsg(ctx context.Context, chatid int64, chatname string,
-	senderid int64, sendername string, msg []byte, msgType int, timestamp time.Time) error {
-	tx, err := mrs.dbconn.Tx(ctx)
-	if err != nil {
-		return err
-	}
-
-	// sender
-	_, err = tx.Sender.Create().
-		SetID(senderid).
-		SetUsername(sendername).
-		Save(ctx)
-	if err != nil {
-		// sender info had already recorded
-		if ent.IsConstraintError(err) {
-			// ignore constraint shit
-		} else {
-			tx.Rollback()
-			return err
-		}
-	}
-
-	// chat
-	_, err = tx.Chat.Create().
-		SetID(chatid).
-		SetName(chatname).
-		Save(ctx)
-	if err != nil {
-		// chat info had already recorded
-		if ent.IsConstraintError(err) {
-			// ignore constraint shit
-		} else {
-			tx.Rollback()
-			return err
-		}
-	}
-
-	_, err = tx.Message.Create().
-		SetChatID(chatid).
-		SetSenderID(senderid).
-		SetMsg(msg).
-		SetTimestamp(timestamp).
-		SetType(msgType).
-		Save(ctx)
+	err = chat.Upsert(ctx, tx, true,
+		[]string{models.ChatColumns.ID},
+		boil.Whitelist(models.ChatColumns.Name),
+		boil.Infer())
 	if err != nil {
 		tx.Rollback()
-		return err
+		return
+	}
+
+	// upsert sender info
+	sender := models.Sender{
+		ID:       senderid,
+		Username: sendername,
+	}
+	err = sender.Upsert(ctx, tx, true,
+		[]string{models.SenderColumns.ID},
+		boil.Whitelist(models.SenderColumns.Username),
+		boil.Infer())
+	if err != nil {
+		tx.Rollback()
+		return
+	}
+
+	// insert message
+	newrow := models.Message{
+		MSG:       msg,
+		Timestamp: timestamp,
+		ChatID:    null.Int64From(chatid),
+		SenderID:  null.Int64From(senderid),
+		Type:      int64(msgType),
+	}
+	err = newrow.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer()) // no way it would conflicts
+	if err != nil {
+		tx.Rollback()
+		return
 	}
 
 	return tx.Commit()
+
 }
 
-func (mrs *teleMsgRecSqlStorage) Count(ctx context.Context) (int, error) {
-	return mrs.dbconn.Message.Query().Count(ctx)
+func (this *teleMsgRecSqlStorage) GetChatMessages(ctx context.Context, chatid int64, page int, pagesize int) (models.MessageSlice, error) {
+	return models.Messages(
+		models.MessageWhere.ChatID.EQ(null.Int64From(chatid)),
+		qm.Limit(pagesize),
+		qm.Offset(page),
+	).All(ctx, this.conn)
+}
+
+func (this *teleMsgRecSqlStorage) Count(ctx context.Context) (int, error) {
+	cnt, err := models.Messages().Count(ctx, this.conn)
+
+	return int(cnt), err
+}
+
+func (this *teleMsgRecSqlStorage) Close() error {
+	return nil
 }

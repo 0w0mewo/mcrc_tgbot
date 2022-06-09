@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	constant "github.com/0w0mewo/mcrc_tgbot/const"
-	"github.com/0w0mewo/mcrc_tgbot/model"
+	models "github.com/0w0mewo/mcrc_tgbot/model"
 	"github.com/0w0mewo/mcrc_tgbot/persistent"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
 	"github.com/agoalofalife/event"
@@ -36,15 +36,15 @@ func newTweetForwarder() *tweetForwarder {
 	return tf
 }
 
-func (tl *tweetForwarder) GetSubscriptions(chatid int64) ([]model.TweetUser, error) {
+func (tl *tweetForwarder) GetSubscriptions(chatid int64) (models.TweetUserSlice, error) {
 	return tl.repo.GetAllSubscribeeByChatId(context.Background(), chatid)
 }
 
-func (tl *tweetForwarder) Subscribe(chat model.Chat, tweeter string) error {
+func (tl *tweetForwarder) Subscribe(chat models.Chat, tweeter string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), constant.DB_CRUD_TIMEOUT)
 	defer cancel()
 
-	twu, err := ScrapLastTweet(tweeter)
+	twu, lasttweet, err := ScrapLastTweet(tweeter)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (tl *tweetForwarder) Subscribe(chat model.Chat, tweeter string) error {
 		return ErrSubscribed
 	}
 
-	return err
+	return tl.repo.UpdateLastTweet(ctx, chat.ID, twu.ID, lasttweet)
 
 }
 
@@ -62,12 +62,12 @@ func (tl *tweetForwarder) Unsubscribe(chatid int64, tweeter string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), constant.DB_CRUD_TIMEOUT)
 	defer cancel()
 
-	twu, err := ScrapLastTweet(tweeter)
+	twu, _, err := ScrapLastTweet(tweeter)
 	if err != nil {
 		return err
 	}
 
-	err = tl.repo.Remove(ctx, chatid, twu.Id)
+	err = tl.repo.Remove(ctx, chatid, twu.ID)
 	if errors.Is(err, persistent.ErrNotExist) {
 		return ErrNotSubscribed
 	}
@@ -119,19 +119,20 @@ func (tl *tweetForwarder) updateChatSubs(chatid int64) error {
 	for _, sub := range subs {
 		// search the subscribed tweeter from DB by twitter user id
 		// and convert to username that is accecptable by twitterscraper
-		tu, err := tl.repo.GetTweeterOfChatSub(context.Background(), sub.Id)
+		tu, err := tl.repo.GetTweeterOfChatSub(context.Background(), int(sub.ID))
 		if err != nil {
 			tl.logger.Warnln(err)
 			continue
 		}
-		twu, err := ScrapLastTweet(tu.UserName)
+
+		_, lasttweet, err := ScrapLastTweet(tu.Username)
 		if err != nil {
-			tl.logger.WithField("subscribee username", tu.UserName).Warnln(err)
+			tl.logger.WithField("subscribee username", tu.Username).Warnln(err)
 			continue
 		}
 
 		// new tweet
-		if twurl := twu.LastTweet; twurl != sub.LastTweet {
+		if twurl := lasttweet; twurl != sub.LastTweet {
 			// publish the new tweet url to event listeners
 			tl.logger.
 				WithField("tweet url", twurl).
@@ -141,7 +142,7 @@ func (tl *tweetForwarder) updateChatSubs(chatid int64) error {
 			tl.evhub.Fire("newtweet", chatid, twurl)
 
 			// update state
-			tl.repo.UpdateLastTweet(context.Background(), chatid, tu.Id, twurl)
+			tl.repo.UpdateLastTweet(context.Background(), chatid, tu.ID, twurl)
 		}
 
 	}

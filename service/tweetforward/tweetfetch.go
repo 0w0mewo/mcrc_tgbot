@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/0w0mewo/mcrc_tgbot/model"
+	models "github.com/0w0mewo/mcrc_tgbot/model"
 	twitterscraper "github.com/n0madic/twitter-scraper"
 )
 
@@ -15,8 +15,8 @@ var (
 	ErrTwitterScraper = errors.New("twitter API unkonwn error: tweet result is null")
 )
 
-func ScrapLastTweet(uname string) (twu *model.TweetUser, err error) {
-	scrapLastTweet := func(uname string) (twu *model.TweetUser, err error) {
+func ScrapLastTweet(uname string) (twu *models.TweetUser, lasttweet string, err error) {
+	scrapLastTweet := func(uname string) (twu *models.TweetUser, err error) {
 		tweets, _, err := twitterscraper.New().FetchTweets(uname, 1, "")
 		if err != nil {
 			return
@@ -44,10 +44,10 @@ func ScrapLastTweet(uname string) (twu *model.TweetUser, err error) {
 			return
 		}
 
-		twu = new(model.TweetUser)
-		twu.Id = twuid
-		twu.UserName = twuname
-		twu.LastTweet = lastTweet
+		twu = new(models.TweetUser)
+		twu.ID = twuid
+		twu.Username = twuname
+		lasttweet = lastTweet
 
 		return
 	}

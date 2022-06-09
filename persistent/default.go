@@ -1,15 +1,13 @@
 package persistent
 
 import (
-	"context"
+	"database/sql"
 	"os"
-	"time"
 
-	"github.com/0w0mewo/mcrc_tgbot/persistent/ent"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var DefaultDBConn *ent.Client
+var DefaultDBConn *sql.DB
 
 func init() {
 	var err error
@@ -30,18 +28,14 @@ func init() {
 	}
 }
 
-func open(cfg *Config) (*ent.Client, error) {
-	dbconn, err := ent.Open(cfg.Driver, cfg.Dialect)
+func open(cfg *Config) (*sql.DB, error) {
+	DB, err := sql.Open(cfg.Driver, cfg.Dialect)
 	if err != nil {
-		return nil, err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	err = dbconn.Schema.Create(ctx)
-	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	return dbconn, nil
+	DB.SetMaxIdleConns(10)
+	DB.SetMaxOpenConns(20)
+
+	return DB, nil
 }

@@ -2,157 +2,146 @@ package persistent
 
 import (
 	"context"
-	"time"
+	"database/sql"
 
-	"entgo.io/ent/dialect/sql"
-	"github.com/0w0mewo/mcrc_tgbot/model"
-	"github.com/0w0mewo/mcrc_tgbot/persistent/ent"
-	"github.com/0w0mewo/mcrc_tgbot/persistent/ent/chat"
-	"github.com/0w0mewo/mcrc_tgbot/persistent/ent/chattweetsubscription"
-	"github.com/0w0mewo/mcrc_tgbot/persistent/ent/predicate"
-	"github.com/0w0mewo/mcrc_tgbot/persistent/ent/tweetuser"
+	models "github.com/0w0mewo/mcrc_tgbot/model"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 var _ ChatTweetSubRepo = &chatTweetSubSqlStorage{}
 
 type chatTweetSubSqlStorage struct {
-	dbconn *ent.Client
+	conn *sql.DB
 }
 
-func NewChatTweetSubSqlStorage(dbconn *ent.Client) ChatTweetSubRepo {
-	ret := &chatTweetSubSqlStorage{
-		dbconn: dbconn,
+func NewChatTweetSubSqlStorage(db *sql.DB) *chatTweetSubSqlStorage {
+	return &chatTweetSubSqlStorage{
+		conn: db,
 	}
-
-	return ret
 }
 
-func (cts *chatTweetSubSqlStorage) Create(ctx context.Context, fromchat model.Chat, sub model.TweetUser) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// check existence first
-	exist, err := cts.Exist(ctx, fromchat.Id, sub.Id)
+func (this *chatTweetSubSqlStorage) Create(ctx context.Context, fromchat models.Chat, sub models.TweetUser) (err error) {
+	tx, err := this.conn.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return
 	}
+
+	// check if it has subscribed already
+	exist, err := this.Exist(ctx, fromchat.ID, sub.ID)
+	if err != nil {
+		tx.Rollback()
+		return
+	}
+
+	// it is
 	if exist {
+		tx.Rollback()
 		return ErrExist
 	}
 
-	// start a transaction since there are two table related together
-	tx, err := cts.dbconn.Tx(ctx)
-	if err != nil {
-		return err
-	}
-
-	// add tweeter user detail
-	err = tx.TweetUser.Create().
-		SetID(sub.Id).
-		SetUsername(sub.UserName).
-		OnConflict(
-			sql.ConflictColumns(tweetuser.FieldID),
-		).
-		UpdateNewValues().
-		Exec(ctx)
+	// upsert chat info
+	err = fromchat.Upsert(ctx, tx, true, []string{models.ChatColumns.ID},
+		boil.Whitelist(models.ChatColumns.Name), boil.Infer())
 	if err != nil {
 		tx.Rollback()
-		return err
-
+		return
 	}
 
-	// work around of FOREIGN KEY constraint fail
-	err = tx.Chat.Create().
-		SetID(fromchat.Id).
-		SetName(fromchat.Name).
-		OnConflict(
-			sql.ConflictColumns(chat.FieldID),
-		).UpdateNewValues().Exec(ctx)
+	// upsert twitter subscription
+	err = sub.Upsert(ctx, tx, true, []string{models.TweetUserColumns.ID},
+		boil.Whitelist(models.TweetUserColumns.Username), boil.Infer())
 	if err != nil {
 		tx.Rollback()
-		return err
+		return
 	}
 
-	// create chat-tweeter subscription record, rollback if failed to create
-	err = tx.ChatTweetSubscription.Create().
-		SetChatID(fromchat.Id).
-		SetLastTweet(sub.LastTweet).
-		SetTweeterID(sub.Id).
-		Exec(ctx)
+	// insert subscription
+	newsub := models.ChatTweetSubscription{
+		TweeterID: null.StringFrom(sub.ID),
+		ChatID:    null.Int64From(fromchat.ID),
+		LastTweet: "no tweet captured",
+	}
+	err = newsub.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer())
 	if err != nil {
 		tx.Rollback()
-		return err
+		return
 	}
 
 	return tx.Commit()
-
 }
 
-func (cts *chatTweetSubSqlStorage) Remove(ctx context.Context, chatid int64, twuid string) error {
-	exist, err := cts.Exist(ctx, chatid, twuid)
+func (this *chatTweetSubSqlStorage) Remove(ctx context.Context, chatid int64, twuid string) error {
+	exist, err := this.Exist(ctx, chatid, twuid)
 	if err != nil {
 		return err
 	}
+
 	if !exist {
 		return ErrNotExist
 	}
 
-	_, err = cts.dbconn.ChatTweetSubscription.Delete().
-		Where(cts.matchTwetterIdAndChatId(chatid, twuid)...).
-		Exec(ctx)
-
-	return err
+	return models.ChatTweetSubscriptions(
+		chatAndTweeterFilter(chatid, twuid)...,
+	).DeleteAll(ctx, this.conn)
 }
 
-func (cts *chatTweetSubSqlStorage) Exist(ctx context.Context, chatid int64, twuid string) (bool, error) {
-	return cts.dbconn.ChatTweetSubscription.Query().
-		Where(cts.matchTwetterIdAndChatId(chatid, twuid)...).
-		Exist(ctx)
+func (this *chatTweetSubSqlStorage) Exist(ctx context.Context, chatid int64, twuid string) (bool, error) {
+	return models.ChatTweetSubscriptions(
+		qm.Select(models.ChatTweetSubscriptionColumns.ID),
+		models.ChatTweetSubscriptionWhere.ChatID.EQ(null.Int64From(chatid)),
+		models.ChatTweetSubscriptionWhere.TweeterID.EQ(null.StringFrom(twuid)),
+	).Exists(ctx, this.conn)
+
 }
 
-func (cts *chatTweetSubSqlStorage) GetAllChatSub(ctx context.Context,
-	chatid int64) ([]model.ChatTweetSubscription, error) {
-	subs, err := cts.dbconn.ChatTweetSubscription.Query().
-		Where(chattweetsubscription.ChatID(chatid)).
-		All(ctx)
+func (this *chatTweetSubSqlStorage) GetAllChatSub(ctx context.Context, chatid int64) (models.ChatTweetSubscriptionSlice, error) {
+	return models.ChatTweetSubscriptions(
+		models.ChatTweetSubscriptionWhere.ChatID.EQ(null.Int64From(chatid))).
+		All(ctx, this.conn)
+}
+
+func (this *chatTweetSubSqlStorage) GetAllChatIds(ctx context.Context) ([]int64, error) {
+	res, err := models.ChatTweetSubscriptions(
+		qm.Select(models.ChatTweetSubscriptionColumns.ChatID),
+		qm.GroupBy(models.ChatTweetSubscriptionColumns.ChatID)).
+		All(ctx, this.conn)
 	if err != nil {
 		return nil, err
 	}
 
-	res := make([]model.ChatTweetSubscription, 0, len(subs))
-
-	for _, cs := range subs {
-		res = append(res, model.ChatTweetSubscription{
-			Id:        cs.ID,
-			ChatId:    cs.ChatID,
-			TweeterId: cs.TweeterID,
-			LastTweet: cs.LastTweet,
-		})
-	}
-
-	return res, nil
-}
-
-func (cts *chatTweetSubSqlStorage) GetAllChatIds(ctx context.Context) ([]int64, error) {
-	res, err := cts.dbconn.ChatTweetSubscription.Query().
-		GroupBy(chattweetsubscription.FieldChatID).
-		Ints(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	dbChatid := make([]int64, 0, len(res))
+	chatids := make([]int64, 0, len(res))
 	for _, c := range res {
-		dbChatid = append(dbChatid, int64(c))
+		chatids = append(chatids, c.ChatID.Int64)
 	}
 
-	return dbChatid, nil
+	return chatids, nil
 }
 
-func (cts *chatTweetSubSqlStorage) GetLastTweet(ctx context.Context, chatid int64, twuid string) (string, error) {
-	res, err := cts.dbconn.ChatTweetSubscription.Query().
-		Where(cts.matchTwetterIdAndChatId(chatid, twuid)...).
-		First(ctx)
+func (this *chatTweetSubSqlStorage) GetAllSubscribeeByChatId(ctx context.Context, chatid int64) (models.TweetUserSlice, error) {
+	test, err := models.ChatTweetSubscriptions(
+		qm.Select(models.ChatTweetSubscriptionColumns.TweeterID),
+		models.ChatTweetSubscriptionWhere.ChatID.EQ(null.Int64From(chatid)),
+	).All(ctx, this.conn)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, 0, len(test))
+	for _, t := range test {
+		ids = append(ids, t.TweeterID.String)
+	}
+
+	return models.TweetUsers(models.TweetUserWhere.ID.IN(ids)).All(ctx, this.conn)
+}
+
+func (this *chatTweetSubSqlStorage) GetLastTweet(ctx context.Context, chatid int64, twuid string) (string, error) {
+	res, err := models.ChatTweetSubscriptions(
+		qm.Select(models.ChatTweetSubscriptionColumns.LastTweet),
+		models.ChatTweetSubscriptionWhere.ChatID.EQ(null.Int64From(chatid)),
+		models.ChatTweetSubscriptionWhere.TweeterID.EQ(null.StringFrom(twuid)),
+	).One(ctx, this.conn)
 	if err != nil {
 		return "", err
 	}
@@ -160,58 +149,39 @@ func (cts *chatTweetSubSqlStorage) GetLastTweet(ctx context.Context, chatid int6
 	return res.LastTweet, nil
 }
 
-func (cts *chatTweetSubSqlStorage) UpdateLastTweet(ctx context.Context, chatid int64, twuid string, newtweet string) error {
-	_, err := cts.dbconn.ChatTweetSubscription.Update().
-		Where(cts.matchTwetterIdAndChatId(chatid, twuid)...).
-		SetLastTweet(newtweet).
-		Save(ctx)
-
-	return err
+func (this *chatTweetSubSqlStorage) UpdateLastTweet(ctx context.Context, chatid int64, twuid string, newtweet string) error {
+	return models.ChatTweetSubscriptions(
+		chatAndTweeterFilter(chatid, twuid)...,
+	).UpdateAll(ctx, this.conn, models.M{models.ChatTweetSubscriptionColumns.LastTweet: newtweet})
 }
 
-func (cts *chatTweetSubSqlStorage) GetTweeterOfChatSub(ctx context.Context, id int) (model.TweetUser, error) {
-	chatsub, err := cts.dbconn.ChatTweetSubscription.Get(ctx, id)
+func (this *chatTweetSubSqlStorage) GetTweeterOfChatSub(ctx context.Context, id int) (tu models.TweetUser, err error) {
+	chatsub, err := models.ChatTweetSubscriptions(
+		qm.Select(models.ChatTweetSubscriptionColumns.TweeterID),
+		models.ChatTweetSubscriptionWhere.ID.EQ(int64(id)),
+	).One(ctx, this.conn)
 	if err != nil {
-		return model.TweetUser{}, err
+		return
 	}
 
-	twu, err := cts.dbconn.ChatTweetSubscription.QuerySubscribedTweeter(chatsub).
-		First(ctx)
+	res, err := models.TweetUsers(models.TweetUserWhere.ID.EQ(chatsub.TweeterID.String)).One(ctx, this.conn)
 	if err != nil {
-		return model.TweetUser{}, err
+		return
 	}
 
-	return model.TweetUser{
-		Id:       twu.ID,
-		UserName: twu.Username,
-	}, nil
+	tu.ID = res.ID
+	tu.Username = res.Username
 
+	return
 }
 
-func (cts *chatTweetSubSqlStorage) GetAllSubscribeeByChatId(ctx context.Context, chatid int64) ([]model.TweetUser, error) {
-	res, err := cts.dbconn.ChatTweetSubscription.Query().
-		Where(chattweetsubscription.ChatID(chatid)).
-		QuerySubscribedTweeter().All(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	ret := make([]model.TweetUser, 0, len(res))
-
-	for _, twu := range res {
-		ret = append(ret, model.TweetUser{Id: twu.ID, UserName: twu.Username})
-	}
-
-	return ret, nil
+func (this *chatTweetSubSqlStorage) Close() error {
+	return nil
 }
 
-func (cts *chatTweetSubSqlStorage) Close() error {
-	return cts.dbconn.Close()
-}
-
-func (cts *chatTweetSubSqlStorage) matchTwetterIdAndChatId(chatid int64, twuid string) []predicate.ChatTweetSubscription {
-	return []predicate.ChatTweetSubscription{
-		chattweetsubscription.ChatID(chatid),
-		chattweetsubscription.TweeterID(twuid),
+func chatAndTweeterFilter(chatid int64, twuid string) []qm.QueryMod {
+	return []qm.QueryMod{
+		models.ChatTweetSubscriptionWhere.ChatID.EQ(null.Int64From(chatid)),
+		models.ChatTweetSubscriptionWhere.TweeterID.EQ(null.StringFrom(twuid)),
 	}
 }

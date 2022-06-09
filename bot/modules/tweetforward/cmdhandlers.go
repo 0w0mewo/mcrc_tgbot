@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/0w0mewo/mcrc_tgbot/model"
+	models "github.com/0w0mewo/mcrc_tgbot/model"
 	tweetforward "github.com/0w0mewo/mcrc_tgbot/service/tweetforward"
 	"github.com/pkg/errors"
 	"gopkg.in/telebot.v3"
@@ -30,7 +30,7 @@ func (t *Notifier) tweetSub(c telebot.Context) error {
 		return nil
 	}
 
-	err := tweetforward.Subscribe(model.Chat{Id: c.Chat().ID, Name: c.Chat().Title}, twuname)
+	err := tweetforward.Subscribe(models.Chat{ID: c.Chat().ID, Name: c.Chat().Title}, twuname)
 	if err != nil {
 		c.Send(fmt.Sprintf("[ERR] Fail to subscribe %s: %s", twuname, err.Error()))
 		return errors.Wrap(err, twuname)
@@ -50,7 +50,7 @@ func (t *Notifier) tweetList(c telebot.Context) error {
 
 	msg := new(strings.Builder)
 	for _, sub := range subs {
-		msg.WriteString(sub.UserName + "\n")
+		msg.WriteString(sub.Username + "\n")
 	}
 
 	return c.Send(msg.String())
