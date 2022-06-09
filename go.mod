@@ -8,6 +8,7 @@ require (
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/mattn/go-sqlite3 v1.14.13
 	github.com/n0madic/twitter-scraper v0.0.0-20220524141701-b009258bb6b6
+	github.com/panjf2000/ants/v2 v2.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
 )

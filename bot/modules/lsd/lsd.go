@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/0w0mewo/mcrc_tgbot/bot"
 	"github.com/0w0mewo/mcrc_tgbot/config"
 	"github.com/0w0mewo/mcrc_tgbot/service/linesticker"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
+	"github.com/panjf2000/ants/v2"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/telebot.v3"
 )
@@ -24,10 +24,17 @@ func init() {
 	cfg := ConfigFrom(config.Config.GetConfigFile())
 	config.Config.RegisterModuleConfig("mod.lsd", cfg)
 
+	pool, err := ants.NewPool(4)
+	if err != nil {
+		panic(err)
+	}
+
 	// load module
 	m := &lineStickerDown{
-		logger: utils.NewLogger(),
-		conf:   cfg,
+		logger:  utils.NewLogger(),
+		conf:    cfg,
+		fetcher: linesticker.NewFetcher(context.Background(), http.DefaultClient),
+		pool:    pool,
 	}
 	bot.ModRegister.RegistryMod(m)
 
@@ -37,6 +44,8 @@ type lineStickerDown struct {
 	tgbot   *telebot.Bot
 	conf    *lineStickerDownconf
 	logger  *logrus.Logger
+	fetcher *linesticker.Fetcher
+	pool    *ants.Pool // for proccessing requested stickers packages
 	running bool
 }
 
@@ -59,6 +68,8 @@ func (ma *lineStickerDown) Name() string {
 
 func (ma *lineStickerDown) Stop(b *bot.Bot) {
 	ma.running = false
+	ma.pool.Release()
+
 	ma.logger.Printf("%s unloaded", ma.Name())
 }
 
@@ -67,9 +78,6 @@ func (ma *lineStickerDown) Reload() {
 }
 
 func (ma *lineStickerDown) lsd(c telebot.Context) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	var packid int
 	var qqtrans bool
 	var err error
@@ -97,11 +105,26 @@ func (ma *lineStickerDown) lsd(c telebot.Context) error {
 		return ErrNotEnoughArguments
 	}
 
-	// download stickers
-	fetcher := linesticker.NewFetcher(ctx, http.DefaultClient)
-	data, err := fetcher.SaveStickers(ctx, packid, qqtrans)
+	// pass request to workers
+	err = ma.pool.Submit(func() {
+		ma.downloadAndSend(c.Recipient(), packid, qqtrans)
+	})
 	if err != nil {
-		return err
+		ma.logger.Error("pool", err)
+		return c.Send("fail to download package")
+	}
+
+	return c.Send(fmt.Sprintf("downloading sticker pack: %d", packid))
+
+}
+
+func (ma *lineStickerDown) downloadAndSend(respTo telebot.Recipient, packid int, qqTrans bool) {
+	// download stickers
+	data, err := ma.fetcher.SaveStickers(context.Background(), packid, qqTrans)
+	if err != nil {
+		ma.logger.Error("worker", err)
+		ma.tgbot.Send(respTo, "unable to fetch stickers")
+		return
 	}
 
 	// send
@@ -110,7 +133,10 @@ func (ma *lineStickerDown) lsd(c telebot.Context) error {
 		FileName: fmt.Sprintf("%d.zip", packid),
 	}
 
-	return c.Send(zippedPack, &telebot.SendOptions{
+	ma.tgbot.Send(respTo, zippedPack, &telebot.SendOptions{
 		DisableNotification: true,
 	})
+
+	return
+
 }

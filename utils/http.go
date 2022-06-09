@@ -3,10 +3,14 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"sync"
 )
+
+var ErrFailToGet = errors.New("fail to GET")
+var ErrNotFound = errors.New("NOT FOUND")
 
 func HttpGetWithProcessor(ctx context.Context, client *http.Client, url string, processor func(r io.Reader) error) error {
 	errch := make(chan error, 1)
@@ -18,6 +22,15 @@ func HttpGetWithProcessor(ctx context.Context, client *http.Client, url string, 
 	if err != nil {
 		return err
 	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return ErrNotFound
+	default:
+		return ErrFailToGet
+	}
+
 	defer resp.Body.Close()
 
 	// read resp body stream from pipe
