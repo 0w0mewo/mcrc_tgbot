@@ -30,7 +30,19 @@ func (t *Notifier) tweetSub(c telebot.Context) error {
 		return nil
 	}
 
-	err := tweetforward.Subscribe(models.Chat{ID: c.Chat().ID, Name: c.Chat().Title}, twuname)
+	var name string
+	chat := c.Chat()
+	if chat != nil {
+		if chat.Title != "" {
+			// group chat
+			name = chat.Title
+		} else {
+			// private chat
+			name = chat.Username
+		}
+	}
+
+	err := tweetforward.Subscribe(models.Chat{ID: chat.ID, Name: name}, twuname)
 	if err != nil {
 		c.Send(fmt.Sprintf("[ERR] Fail to subscribe %s: %s", twuname, err.Error()))
 		return errors.Wrap(err, twuname)
@@ -41,9 +53,9 @@ func (t *Notifier) tweetSub(c telebot.Context) error {
 }
 
 func (t *Notifier) tweetList(c telebot.Context) error {
-	chat := c.Chat().ID
+	chatid := c.Chat().ID
 
-	subs, err := tweetforward.GetSubscriptions(chat)
+	subs, err := tweetforward.GetSubscriptions(chatid)
 	if err != nil {
 		return c.Send("[ERR] " + err.Error())
 	}
