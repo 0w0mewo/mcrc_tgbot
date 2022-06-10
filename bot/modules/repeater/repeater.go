@@ -12,8 +12,8 @@ import (
 
 func init() {
 	// load config and regsiter to manager
-	cfg := ConfigFrom(config.Config.GetConfigFile())
-	config.Config.RegisterModuleConfig("mod.repeater", cfg)
+	cfg := ConfigFrom(config.GetConfigFile())
+	config.RegisterModuleConfig("mod.repeater", cfg)
 
 	// load module
 	r := &Repeater{

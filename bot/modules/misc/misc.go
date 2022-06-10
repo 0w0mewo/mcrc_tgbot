@@ -10,8 +10,8 @@ import (
 
 func init() {
 	// load config and regsiter to manager
-	cfg := ConfigFrom(config.Config.GetConfigFile())
-	config.Config.RegisterModuleConfig("mod.misc", cfg)
+	cfg := ConfigFrom(config.GetConfigFile())
+	config.RegisterModuleConfig("mod.misc", cfg)
 
 	// load module
 	m := &miscMod{

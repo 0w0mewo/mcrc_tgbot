@@ -11,8 +11,6 @@ import (
 
 type ConfigType map[string]any
 
-var Config *configManager
-
 type configManager struct {
 	configwatcher *fsnotify.Watcher
 	cfgFile       string
@@ -96,10 +94,6 @@ func (cm *configManager) Reload() {
 
 func (cm *configManager) Table() map[string]IConfig {
 	return cm.regTable
-}
-
-func init() {
-	Config = newConfigManager("./config.yaml")
 }
 
 type IConfig interface {

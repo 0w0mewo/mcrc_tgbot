@@ -34,7 +34,7 @@ func newModMan() *modMan {
 
 	// reload modules when config file changed
 	go func() {
-		for range config.Config.ConfigChanged() {
+		for range config.ConfigChanged() {
 			ret.ReloadModules()
 		}
 	}()

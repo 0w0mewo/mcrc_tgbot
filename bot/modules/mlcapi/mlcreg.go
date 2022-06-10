@@ -14,8 +14,8 @@ import (
 
 func init() {
 	// load config and regsiter to manager
-	cfg := ConfigFrom(config.Config.GetConfigFile())
-	config.Config.RegisterModuleConfig("mod.mlcapi", cfg)
+	cfg := ConfigFrom(config.GetConfigFile())
+	config.RegisterModuleConfig("mod.mlcapi", cfg)
 
 	// load module
 	m := &MlcApi{

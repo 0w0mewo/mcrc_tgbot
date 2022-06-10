@@ -21,8 +21,8 @@ var ErrNotEnoughArguments = errors.New("not enough args")
 
 func init() {
 	// load config and regsiter to manager
-	cfg := ConfigFrom(config.Config.GetConfigFile())
-	config.Config.RegisterModuleConfig("mod.lsd", cfg)
+	cfg := ConfigFrom(config.GetConfigFile())
+	config.RegisterModuleConfig("mod.lsd", cfg)
 
 	pool, err := ants.NewPool(4)
 	if err != nil {
