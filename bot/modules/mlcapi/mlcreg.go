@@ -73,7 +73,7 @@ func (ma *MlcApi) mlcreg(c telebot.Context) error {
 	args := c.Args()
 
 	if len(args) < 2 {
-		return c.Send("usage: /mlcreg [register | deleteuser | changepw  | unban | ban | resethwid | getinfo] <username> [<password> | <ban reason>]")
+		return c.Send("usage: /mlcreg [register | deleteuser | changepw | setuserrak | unban | ban | resethwid | getinfo] <username> [<password> | <ban reason> | <rank>] [<rank>]")
 
 	}
 
@@ -84,8 +84,8 @@ func (ma *MlcApi) mlcreg(c telebot.Context) error {
 
 	if res != nil {
 		resp := res.(*mlcapi.UserInfo)
-		return c.Send(fmt.Sprintf("username: %s, state: %s, last logined IP: %s, last logined at: %s",
-			resp.UserName, resp.State, resp.LastIP, time.UnixMilli(resp.LastLoginTime)))
+		return c.Send(fmt.Sprintf("username: %s, state: %s, last logined IP: %s, last logined at: %s, rank: %s",
+			resp.UserName, resp.State, resp.LastIP, time.UnixMilli(resp.LastLoginTime), resp.Rank))
 	}
 
 	return c.Send("OK")

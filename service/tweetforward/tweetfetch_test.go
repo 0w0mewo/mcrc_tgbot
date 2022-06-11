@@ -8,14 +8,14 @@ import (
 
 func TestScrapTweet(t *testing.T) {
 	testUserName := "Johnny_Lindecis"
-	twu, err := tweetforward.ScrapLastTweet(testUserName)
+	twu, lasttweet, err := tweetforward.ScrapLastTweet(testUserName)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if twu.UserName != testUserName {
+	if twu.Username != testUserName {
 		t.Fatal()
 	}
 
-	t.Logf("id = %s, uname = %s, last tweet = %s", twu.Id, twu.UserName, twu.LastTweet)
+	t.Logf("id = %s, uname = %s, last tweet = %s", twu.ID, twu.Username, lasttweet)
 }

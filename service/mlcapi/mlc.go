@@ -32,6 +32,7 @@ func NewMlcApiClient(staffToken, managerToken string) *MlcApiClient {
 		API_CHANGEPW:  client.ChangePassword,
 		API_RESET:     client.ResetHWID,
 		API_REGISTER:  client.Register,
+		API_SETRANK:   client.SetRank,
 	}
 
 	return client
@@ -57,6 +58,9 @@ func (mr *MlcApiClient) buildStaffReq(httpmethod string, reqtype string, endpoin
 		form.Add("new_password", apireq.Password)
 	case API_REGISTER:
 		form.Add("password", apireq.Password)
+		form.Add("rank", apireq.Rank)
+	case API_SETRANK:
+		form.Add("rank", apireq.Rank)
 	case API_RESET:
 	case API_UNBAN:
 	case API_GETINFO:
@@ -81,8 +85,8 @@ func (mr *MlcApiClient) buildStaffReq(httpmethod string, reqtype string, endpoin
 
 }
 
-func (mr *MlcApiClient) do(reqtype string, endpoint string, r UserGeneralReq) (*UserGeneralResp, error) {
-	req, err := mr.buildStaffReq("POST", reqtype, endpoint, r)
+func (mr *MlcApiClient) do(httpmethod, reqtype string, endpoint string, r UserGeneralReq) (*UserGeneralResp, error) {
+	req, err := mr.buildStaffReq(httpmethod, reqtype, endpoint, r)
 	if err != nil {
 		return nil, errors.Wrap(err, "buildreq")
 	}
@@ -115,10 +119,11 @@ func (mr *MlcApiClient) do(reqtype string, endpoint string, r UserGeneralReq) (*
 }
 
 // register user
-func (mr *MlcApiClient) Register(username string, password string) (err error) {
-	_, err = mr.do(API_REGISTER, staffEndpoint, UserGeneralReq{
+func (mr *MlcApiClient) Register(username string, password string, rank string) (err error) {
+	_, err = mr.do(http.MethodPost, API_REGISTER, staffEndpoint, UserGeneralReq{
 		UserName: username,
 		Password: password,
+		Rank:     rank,
 	})
 
 	return
@@ -126,7 +131,7 @@ func (mr *MlcApiClient) Register(username string, password string) (err error) {
 
 // ban user with reason
 func (mr *MlcApiClient) Ban(username string, reason string) (err error) {
-	_, err = mr.do(API_BAN, staffEndpoint, UserGeneralReq{
+	_, err = mr.do(http.MethodPost, API_BAN, staffEndpoint, UserGeneralReq{
 		UserName:    username,
 		BanedReason: reason,
 	})
@@ -136,7 +141,7 @@ func (mr *MlcApiClient) Ban(username string, reason string) (err error) {
 
 // unban user
 func (mr *MlcApiClient) UnBan(username string) (err error) {
-	_, err = mr.do(API_UNBAN, staffEndpoint, UserGeneralReq{
+	_, err = mr.do(http.MethodPost, API_UNBAN, staffEndpoint, UserGeneralReq{
 		UserName: username,
 	})
 
@@ -145,7 +150,7 @@ func (mr *MlcApiClient) UnBan(username string) (err error) {
 
 // delete user
 func (mr *MlcApiClient) Delete(username string) (err error) {
-	_, err = mr.do(API_DELTEUSER, staffEndpoint, UserGeneralReq{
+	_, err = mr.do(http.MethodPost, API_DELTEUSER, staffEndpoint, UserGeneralReq{
 		UserName: username,
 	})
 
@@ -154,7 +159,7 @@ func (mr *MlcApiClient) Delete(username string) (err error) {
 
 // reset hwid
 func (mr *MlcApiClient) ResetHWID(username string) (err error) {
-	_, err = mr.do(API_RESET, staffEndpoint, UserGeneralReq{
+	_, err = mr.do(http.MethodPost, API_RESET, staffEndpoint, UserGeneralReq{
 		UserName: username,
 	})
 
@@ -163,7 +168,7 @@ func (mr *MlcApiClient) ResetHWID(username string) (err error) {
 
 // change password
 func (mr *MlcApiClient) ChangePassword(username string, newpassword string) (err error) {
-	_, err = mr.do(API_CHANGEPW, staffEndpoint, UserGeneralReq{
+	_, err = mr.do(http.MethodPost, API_CHANGEPW, staffEndpoint, UserGeneralReq{
 		UserName: username,
 		Password: newpassword,
 	})
@@ -173,7 +178,7 @@ func (mr *MlcApiClient) ChangePassword(username string, newpassword string) (err
 
 // get info of user
 func (mr *MlcApiClient) GetInfo(username string) (*UserInfo, error) {
-	resp, err := mr.do(API_GETINFO, staffEndpoint, UserGeneralReq{
+	resp, err := mr.do(http.MethodPost, API_GETINFO, staffEndpoint, UserGeneralReq{
 		UserName: username,
 	})
 	if err != nil {
@@ -181,4 +186,14 @@ func (mr *MlcApiClient) GetInfo(username string) (*UserInfo, error) {
 	}
 
 	return resp.Info, nil
+}
+
+// set rank of user
+func (mr *MlcApiClient) SetRank(username string, rank string) error {
+	_, err := mr.do(http.MethodPost, API_SETRANK, staffEndpoint, UserGeneralReq{
+		UserName: username,
+		Rank:     rank,
+	})
+
+	return err
 }

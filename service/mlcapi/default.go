@@ -14,8 +14,8 @@ func init() {
 }
 
 // register user
-func Register(username string, password string) error {
-	return defaultClient.Register(username, password)
+func Register(username string, password string, rank string) error {
+	return defaultClient.Register(username, password, rank)
 
 }
 
@@ -53,6 +53,11 @@ func ChangePassword(username string, newpassword string) error {
 func GetInfo(username string) (*UserInfo, error) {
 	return defaultClient.GetInfo(username)
 
+}
+
+// set user rank
+func SetRank(username string, rank string) error {
+	return defaultClient.SetRank(username, rank)
 }
 
 // call mlc api with api name

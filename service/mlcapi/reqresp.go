@@ -9,6 +9,7 @@ type GeneralResp struct {
 type UserGeneralReq struct {
 	UserName    string
 	Password    string
+	Rank        string
 	BanedReason string
 }
 
@@ -27,4 +28,5 @@ type UserInfo struct {
 	State             string `json:"userState"`
 	PasswordPlaintext string `json:"password"`
 	LastLoginTime     int64  `json:"lastLoginTime"`
+	Rank              string `json:"rank"`
 }

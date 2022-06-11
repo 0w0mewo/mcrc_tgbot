@@ -10,4 +10,5 @@ const (
 	API_CHANGEPW  = "changepw"
 	API_DELTEUSER = "deleteuser"
 	API_REGISTER  = "register"
+	API_SETRANK   = "setuserrak"
 )
