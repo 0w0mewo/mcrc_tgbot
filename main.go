@@ -10,8 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var retries = 0
-
 func main() {
 	defer persistent.DefaultDBConn.Close() // kill db connection when exit
 
