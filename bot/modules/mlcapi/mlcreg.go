@@ -79,7 +79,7 @@ func (ma *MlcApi) mlcreg(c telebot.Context) error {
 
 	res, err := mlcapi.ApiCall(ma.mlc, args[0], args[1:]...)
 	if err != nil {
-		return c.Send(err.Error())
+		return c.Send("ERROR: " + err.Error())
 	}
 
 	if res != nil {

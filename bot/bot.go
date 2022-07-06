@@ -5,14 +5,16 @@ import (
 
 	"github.com/0w0mewo/mcrc_tgbot/persistent"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
+	"github.com/panjf2000/ants/v2"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/telebot.v3"
 )
 
 type Bot struct {
-	tgbot   *telebot.Bot
-	logger  *logrus.Entry
-	msgrepo persistent.StoredTeleMsgRepo
+	tgbot             *telebot.Bot
+	logger            *logrus.Entry
+	msgrepo           persistent.StoredTeleMsgRepo
+	eventHandlersPool *ants.Pool
 }
 
 func NewBot(token string) (*Bot, error) {
@@ -41,10 +43,17 @@ func NewBot(token string) (*Bot, error) {
 	// messages storage, DB session
 	repo := persistent.NewTeleMsgSqlStorage(persistent.DefaultDBConn)
 
+	// pool of workers for event handlers
+	pool, err := ants.NewPool(10)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Bot{
-		tgbot:   tgbot,
-		logger:  logger,
-		msgrepo: repo,
+		tgbot:             tgbot,
+		logger:            logger,
+		msgrepo:           repo,
+		eventHandlersPool: pool,
 	}, nil
 }
 
@@ -60,7 +69,7 @@ func (b *Bot) Start() {
 
 	// registry handlers
 	for _, ev := range listenTo {
-		b.tgbot.Handle(ev, processHandlers(ev))
+		b.tgbot.Handle(ev, b.processHandlers(ev))
 	}
 
 	// start
@@ -78,6 +87,9 @@ func (b *Bot) Stop() {
 	// kill repo
 	b.msgrepo.Close()
 
+	// kill event handlers pool
+	b.eventHandlersPool.Release()
+
 	// stop tgbot
 	b.tgbot.Stop()
 }
@@ -86,16 +98,19 @@ func (b *Bot) Bot() *telebot.Bot {
 	return b.tgbot
 }
 
-func processHandlers(ev string) telebot.HandlerFunc {
+func (b *Bot) processHandlers(ev string) telebot.HandlerFunc {
 	return func(c telebot.Context) (err error) {
 		// process all registered handlers
 		handlers := ModRegister.GetTgEventHandlers(ev)
 
 		for _, handler := range handlers {
-			go func(handler telebot.HandlerFunc) {
-				err = handler(c)
-			}(handler)
+			// go func(handler telebot.HandlerFunc) {
+			// 	err = handler(c)
+			// }(handler)
 
+			b.eventHandlersPool.Submit(func() {
+				handler(c)
+			})
 		}
 
 		return
