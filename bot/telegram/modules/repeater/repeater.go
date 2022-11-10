@@ -3,17 +3,19 @@ package repeater
 import (
 	"strconv"
 
-	"github.com/0w0mewo/mcrc_tgbot/bot"
+	tgbot "github.com/0w0mewo/mcrc_tgbot/bot"
 	"github.com/0w0mewo/mcrc_tgbot/config"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/telebot.v3"
 )
 
+const modname = "tg.mod.repeater"
+
 func init() {
 	// load config and regsiter to manager
 	cfg := ConfigFrom(config.GetConfigFile())
-	config.RegisterModuleConfig("mod.repeater", cfg)
+	config.RegisterModuleConfig(modname, cfg)
 
 	// load module
 	r := &Repeater{
@@ -22,7 +24,7 @@ func init() {
 		chatRandLimit: utils.NewRandomMap(cfg.randstart, cfg.randend),
 		msgCounter:    utils.NewCounter(),
 	}
-	bot.ModRegister.RegistryMod(r)
+	tgbot.TgModRegister.RegistryMod(r)
 }
 
 // group message random repeater
@@ -35,7 +37,7 @@ type Repeater struct {
 	running       bool
 }
 
-func (r *Repeater) Start(b *bot.Bot) {
+func (r *Repeater) Start(b *tgbot.TelegramBot) {
 	if !r.running {
 		r.tgbot = b.Bot()
 		r.running = true
@@ -48,17 +50,17 @@ func (r *Repeater) Start(b *bot.Bot) {
 		if r.tgbot == nil {
 			return
 		}
-		bot.ModRegister.AddTgEventHandler(ev, r.handleMessageLimit(r.repeater))
+		tgbot.TgModRegister.AddTgEventHandler(ev, r.handleMessageLimit(r.repeater))
 	}
 
 	r.logger.Printf("%s loaded", r.Name())
 }
 
 func (r *Repeater) Name() string {
-	return "mod.repeater"
+	return modname
 }
 
-func (r *Repeater) Stop(b *bot.Bot) {
+func (r *Repeater) Stop(b *tgbot.TelegramBot) {
 	r.running = false
 	r.logger.Printf("%s unloaded", r.Name())
 }

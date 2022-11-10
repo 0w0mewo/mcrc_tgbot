@@ -1,24 +1,26 @@
 package misc
 
 import (
-	"github.com/0w0mewo/mcrc_tgbot/bot"
+	tgbot "github.com/0w0mewo/mcrc_tgbot/bot"
 	"github.com/0w0mewo/mcrc_tgbot/config"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/telebot.v3"
 )
 
+const modname = "tg.mod.misc"
+
 func init() {
 	// load config and regsiter to manager
 	cfg := ConfigFrom(config.GetConfigFile())
-	config.RegisterModuleConfig("mod.misc", cfg)
+	config.RegisterModuleConfig(modname, cfg)
 
 	// load module
 	m := &miscMod{
 		logger: utils.NewLogger(),
 		conf:   cfg,
 	}
-	bot.ModRegister.RegistryMod(m)
+	tgbot.TgModRegister.RegistryMod(m)
 
 }
 
@@ -29,7 +31,7 @@ type miscMod struct {
 	running bool
 }
 
-func (ma *miscMod) Start(b *bot.Bot) {
+func (ma *miscMod) Start(b *tgbot.TelegramBot) {
 	if !ma.running {
 		ma.tgbot = b.Bot()
 		ma.running = true
@@ -37,11 +39,11 @@ func (ma *miscMod) Start(b *bot.Bot) {
 
 	ma.Reload()
 
-	bot.ModRegister.AddTgEventHandler("/start", func(c telebot.Context) error {
+	tgbot.TgModRegister.AddTgEventHandler("/start", func(c telebot.Context) error {
 		return c.Send("budong")
 	})
 
-	bot.ModRegister.AddTgEventHandler("/help", func(c telebot.Context) error {
+	tgbot.TgModRegister.AddTgEventHandler("/help", func(c telebot.Context) error {
 		return c.Send("nope")
 	})
 
@@ -49,10 +51,10 @@ func (ma *miscMod) Start(b *bot.Bot) {
 }
 
 func (ma *miscMod) Name() string {
-	return "mod.misc"
+	return modname
 }
 
-func (ma *miscMod) Stop(b *bot.Bot) {
+func (ma *miscMod) Stop(b *tgbot.TelegramBot) {
 	ma.running = false
 	ma.logger.Printf("%s unloaded", ma.Name())
 }

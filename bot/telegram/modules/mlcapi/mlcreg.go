@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/0w0mewo/mcrc_tgbot/bot"
+	tgbot "github.com/0w0mewo/mcrc_tgbot/bot"
 	"github.com/0w0mewo/mcrc_tgbot/config"
 	"github.com/0w0mewo/mcrc_tgbot/service/mlcapi"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
@@ -12,10 +12,12 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
+const modname = "tg.mod.mlcapi"
+
 func init() {
 	// load config and regsiter to manager
 	cfg := ConfigFrom(config.GetConfigFile())
-	config.RegisterModuleConfig("mod.mlcapi", cfg)
+	config.RegisterModuleConfig(modname, cfg)
 
 	// load module
 	m := &MlcApi{
@@ -23,7 +25,7 @@ func init() {
 		conf:   cfg,
 		mlc:    mlcapi.NewMlcApiClient("", ""),
 	}
-	bot.ModRegister.RegistryMod(m)
+	tgbot.TgModRegister.RegistryMod(m)
 
 }
 
@@ -35,7 +37,7 @@ type MlcApi struct {
 	running bool
 }
 
-func (ma *MlcApi) Start(b *bot.Bot) {
+func (ma *MlcApi) Start(b *tgbot.TelegramBot) {
 	if !ma.running {
 		ma.tgbot = b.Bot()
 		ma.running = true
@@ -43,16 +45,16 @@ func (ma *MlcApi) Start(b *bot.Bot) {
 
 	ma.Reload()
 
-	bot.ModRegister.AddTgEventHandler("/mlcreg", ma.mlcreg)
+	tgbot.TgModRegister.AddTgEventHandler("/mlcreg", ma.mlcreg)
 
 	ma.logger.Printf("%s loaded", ma.Name())
 }
 
 func (ma *MlcApi) Name() string {
-	return "mod.mlcapi"
+	return modname
 }
 
-func (ma *MlcApi) Stop(b *bot.Bot) {
+func (ma *MlcApi) Stop(b *tgbot.TelegramBot) {
 	ma.running = false
 	ma.logger.Printf("%s unloaded", ma.Name())
 }

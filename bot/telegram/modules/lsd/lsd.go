@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/0w0mewo/mcrc_tgbot/bot"
+	tgbot "github.com/0w0mewo/mcrc_tgbot/bot"
 	"github.com/0w0mewo/mcrc_tgbot/config"
 	"github.com/0w0mewo/mcrc_tgbot/service/linesticker"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
@@ -17,12 +17,14 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
+const modname = "tg.mod.lsd"
+
 var ErrNotEnoughArguments = errors.New("not enough args")
 
 func init() {
 	// load config and regsiter to manager
 	cfg := ConfigFrom(config.GetConfigFile())
-	config.RegisterModuleConfig("mod.lsd", cfg)
+	config.RegisterModuleConfig(modname, cfg)
 
 	pool, err := ants.NewPool(4)
 	if err != nil {
@@ -36,7 +38,7 @@ func init() {
 		fetcher: linesticker.NewFetcher(context.Background(), http.DefaultClient),
 		pool:    pool,
 	}
-	bot.ModRegister.RegistryMod(m)
+	tgbot.TgModRegister.RegistryMod(m)
 
 }
 
@@ -49,7 +51,7 @@ type lineStickerDown struct {
 	running bool
 }
 
-func (ma *lineStickerDown) Start(b *bot.Bot) {
+func (ma *lineStickerDown) Start(b *tgbot.TelegramBot) {
 	if !ma.running {
 		ma.tgbot = b.Bot()
 		ma.running = true
@@ -57,16 +59,16 @@ func (ma *lineStickerDown) Start(b *bot.Bot) {
 
 	ma.Reload()
 
-	bot.ModRegister.AddTgEventHandler("/lsd", ma.lsd)
+	tgbot.TgModRegister.AddTgEventHandler("/lsd", ma.lsd)
 
 	ma.logger.Printf("%s loaded", ma.Name())
 }
 
 func (ma *lineStickerDown) Name() string {
-	return "mod.lsd"
+	return modname
 }
 
-func (ma *lineStickerDown) Stop(b *bot.Bot) {
+func (ma *lineStickerDown) Stop(b *tgbot.TelegramBot) {
 	ma.running = false
 	ma.pool.Release()
 
@@ -136,7 +138,5 @@ func (ma *lineStickerDown) downloadAndSend(respTo telebot.Recipient, packid int,
 	ma.tgbot.Send(respTo, zippedPack, &telebot.SendOptions{
 		DisableNotification: true,
 	})
-
-	return
 
 }

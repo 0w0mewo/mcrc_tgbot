@@ -1,4 +1,4 @@
-package bot
+package telegram
 
 import (
 	"bytes"
@@ -15,8 +15,6 @@ func StoreGrpMessage(repo persistent.StoredTeleMsgRepo) telebot.MiddlewareFunc {
 	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
 		return func(c telebot.Context) error {
 			msg := c.Message()
-			// sender := msgrec.Sender{ID: msg.Sender.ID, UserName: msg.Sender.Username}
-			// chat := msgrec.Chat{ID: msg.Chat.ID, Name: msg.Chat.Title}
 
 			if !msg.FromGroup() {
 				goto donext

@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/0w0mewo/mcrc_tgbot/bot"
-	_ "github.com/0w0mewo/mcrc_tgbot/bot/modules"
+	_ "github.com/0w0mewo/mcrc_tgbot/bot/telegram/modules"
 	"github.com/0w0mewo/mcrc_tgbot/persistent"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
 	"github.com/sirupsen/logrus"
@@ -19,7 +19,7 @@ func main() {
 		return
 	}
 
-	yoo, err := bot.NewBot(token)
+	yoo, err := bot.NewTelegramBot(token)
 	if err != nil {
 		logrus.Errorln(err)
 		return

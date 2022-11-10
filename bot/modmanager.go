@@ -10,26 +10,32 @@ import (
 
 var ErrUnregisterMod = errors.New("mod is not registered")
 
-var ModRegister = newModMan()
+var TgModRegister = newTgModMan()
+var DcModRegister = newDcModMan()
 
-type Module interface {
+type BotType interface {
+	TelegramBot | DiscordBot
+}
+
+// bot module
+type BotModule[T BotType] interface {
 	Name() string
-	Start(b *Bot)
-	Stop(b *Bot)
+	Start(b *T)
+	Stop(b *T)
 	Reload()
 }
 
-type modMan struct {
-	lock     *sync.RWMutex
-	mods     map[string]Module
-	handlers map[string][]telebot.HandlerFunc // registered handlers
+type modMan[T BotType] struct {
+	lock       *sync.RWMutex
+	mods       map[string]BotModule[T]
+	tghandlers map[string][]telebot.HandlerFunc // registered handlers
 }
 
-func newModMan() *modMan {
-	ret := &modMan{
-		mods:     make(map[string]Module),
-		lock:     &sync.RWMutex{},
-		handlers: make(map[string][]telebot.HandlerFunc),
+// create a discord bot module manager
+func newDcModMan() *modMan[DiscordBot] {
+	ret := &modMan[DiscordBot]{
+		mods: make(map[string]BotModule[DiscordBot]),
+		lock: &sync.RWMutex{},
 	}
 
 	// reload modules when config file changed
@@ -42,7 +48,25 @@ func newModMan() *modMan {
 	return ret
 }
 
-func (mm *modMan) ReloadModules() {
+// create a telegram bot module manager
+func newTgModMan() *modMan[TelegramBot] {
+	ret := &modMan[TelegramBot]{
+		mods:       make(map[string]BotModule[TelegramBot]),
+		lock:       &sync.RWMutex{},
+		tghandlers: make(map[string][]telebot.HandlerFunc),
+	}
+
+	// reload modules when config file changed
+	go func() {
+		for range config.ConfigChanged() {
+			ret.ReloadModules()
+		}
+	}()
+
+	return ret
+}
+
+func (mm *modMan[T]) ReloadModules() {
 	mm.lock.Lock()
 	defer mm.lock.Unlock()
 
@@ -51,37 +75,36 @@ func (mm *modMan) ReloadModules() {
 	}
 }
 
-func (mm *modMan) AddTgEventHandler(_type string, handler telebot.HandlerFunc) {
+func (mm *modMan[T]) AddTgEventHandler(_type string, handler telebot.HandlerFunc) {
 	mm.lock.Lock()
 	defer mm.lock.Unlock()
 
 	// make sure the event space exist
-	if _, exist := mm.handlers[_type]; !exist {
-		mm.handlers[_type] = make([]telebot.HandlerFunc, 0)
+	if _, exist := mm.tghandlers[_type]; !exist {
+		mm.tghandlers[_type] = make([]telebot.HandlerFunc, 0)
 		listenTo = append(listenTo, _type)
 	}
 
 	if handler == nil {
-		mm.handlers[_type] = append(mm.handlers[_type], defaultHandler)
-		return
+		handler = defaultHandler
 	}
 
-	mm.handlers[_type] = append(mm.handlers[_type], handler)
+	mm.tghandlers[_type] = append(mm.tghandlers[_type], handler)
 }
 
-func (mm *modMan) GetTgEventHandlers(_type string) []telebot.HandlerFunc {
+func (mm *modMan[T]) GetTgEventHandlers(_type string) []telebot.HandlerFunc {
 	mm.lock.RLock()
 	defer mm.lock.RUnlock()
 
 	// make sure the event handler is not null
-	if _, exist := mm.handlers[_type]; !exist {
+	if _, exist := mm.tghandlers[_type]; !exist {
 		return []telebot.HandlerFunc{defaultHandler}
 	}
 
-	return mm.handlers[_type]
+	return mm.tghandlers[_type]
 }
 
-func (mm *modMan) RegistryMod(mod Module) {
+func (mm *modMan[T]) RegistryMod(mod BotModule[T]) {
 	modName := mod.Name()
 
 	mm.lock.Lock()
@@ -90,11 +113,11 @@ func (mm *modMan) RegistryMod(mod Module) {
 	mm.mods[modName] = mod
 }
 
-func (mm *modMan) GetModules() []Module {
+func (mm *modMan[T]) GetModules() []BotModule[T] {
 	mm.lock.RLock()
 	defer mm.lock.RUnlock()
 
-	mods := make([]Module, 0, len(mm.mods))
+	mods := make([]BotModule[T], 0, len(mm.mods))
 
 	for _, mod := range mm.mods {
 		mods = append(mods, mod)

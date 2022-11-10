@@ -1,19 +1,21 @@
 package notifier
 
 import (
-	"github.com/0w0mewo/mcrc_tgbot/bot"
+	tgbot "github.com/0w0mewo/mcrc_tgbot/bot"
 	tweetforward "github.com/0w0mewo/mcrc_tgbot/service/tweetforward"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/telebot.v3"
 )
 
+const modname = "tg.mod.tweetforwarder"
+
 func init() {
 	// load module
 	r := &Notifier{
 		logger: utils.NewLogger(),
 	}
-	bot.ModRegister.RegistryMod(r)
+	tgbot.TgModRegister.RegistryMod(r)
 }
 
 // tweet notifier
@@ -24,7 +26,7 @@ type Notifier struct {
 	running bool
 }
 
-func (t *Notifier) Start(b *bot.Bot) {
+func (t *Notifier) Start(b *tgbot.TelegramBot) {
 	if !t.running {
 		t.tgbot = b.Bot()
 		t.running = true
@@ -38,17 +40,17 @@ func (t *Notifier) Start(b *bot.Bot) {
 		return err
 	})
 
-	bot.ModRegister.AddTgEventHandler("/tweetsub", t.tweetSub)
-	bot.ModRegister.AddTgEventHandler("/tweetunsub", t.tweetUnSub)
+	tgbot.TgModRegister.AddTgEventHandler("/tweetsub", t.tweetSub)
+	tgbot.TgModRegister.AddTgEventHandler("/tweetunsub", t.tweetUnSub)
 
 	t.logger.Printf("%s loaded", t.Name())
 }
 
 func (t *Notifier) Name() string {
-	return "mod.tweetforwarder"
+	return modname
 }
 
-func (t *Notifier) Stop(b *bot.Bot) {
+func (t *Notifier) Stop(b *tgbot.TelegramBot) {
 	t.running = false
 	tweetforward.Shutdown()
 
