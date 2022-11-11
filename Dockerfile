@@ -27,6 +27,6 @@ RUN apk --no-cache add ca-certificates
 
 RUN mkdir /app
 WORKDIR /app
-COPY --from=builder /app/mcrc_tgbot ./
+COPY --from=builder /app/build/mcrc_tgbot ./
 
 ENTRYPOINT [ "./mcrc_tgbot" ]

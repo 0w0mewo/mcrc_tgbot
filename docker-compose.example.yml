@@ -8,7 +8,8 @@ services:
       - ./config.yaml:/app/config.yaml:ro
       - ./data/:/app/data/:rw
     environment:
-      TOKEN: "<REPLACE AS YOUR OWN TOKEN>"
+      TGTOKEN: "<REPLACE AS YOUR OWN TOKEN>"
+      DCTOKEN: "<REPLACE AS YOUR OWN TOKEN>"
       DB_SETTING: "host=db port=5432 user=test dbname=testdb password=test123 sslmode=disable"
       # Support sqlite3 and psql so far
       DB_DRIVER: "postgres"

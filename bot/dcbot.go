@@ -48,6 +48,11 @@ func (dc *DiscordBot) Start() {
 		dc.logger.Error(err)
 
 	}
+
+	err = dc.bot.UpdateGameStatus(0, "f,fk")
+	if err != nil {
+		dc.logger.Error(err)
+	}
 }
 
 func (dc *DiscordBot) Stop() {

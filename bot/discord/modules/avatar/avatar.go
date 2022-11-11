@@ -68,12 +68,12 @@ func (ma *avatar) avatard() {
 	ticker := time.NewTicker(20 * time.Second)
 	defer ticker.Stop()
 
-	watchedFor := ma.conf.syncToUserId
+	watchTo := ma.conf.syncToUserId
 
-	ma.logger.Infof("sync to %s", watchedFor)
+	ma.logger.Infof("watch to %s", watchTo)
 
 	for range ticker.C {
-		expected, username, err := getUserAvatar(ma.dcbot, watchedFor)
+		expected, username, err := getUserAvatar(ma.dcbot, watchTo)
 		if err != nil {
 			ma.logger.Error(err)
 			return
@@ -91,7 +91,7 @@ func (ma *avatar) avatard() {
 			return
 		}
 
-		ma.logger.Infof("distance to expected avatar: %f, pixel difference: %f %%", dist, pdiff*100.0)
+		ma.logger.Debugf("distance to expected avatar: %f, pixel difference: %f %%", dist, pdiff*100.0)
 
 		if pdiff > 0.5 {
 			ma.logger.Println("avatar change detected")
