@@ -39,7 +39,7 @@ func (dc *DiscordBot) Start() {
 	}
 
 	// register handlers
-	for _, h := range DcModRegister.GetDcCmdHandlers() {
+	for _, h := range DcModRegister.GetDcHandlers() {
 		dc.bot.AddHandler(h)
 	}
 

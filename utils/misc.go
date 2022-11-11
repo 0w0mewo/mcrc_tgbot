@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"errors"
+	"image"
 	"image/gif"
 	"image/png"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -12,6 +15,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
+
+var ErrUnEqualBounds = errors.New("images with unequal bounds")
 
 func WaitForSignal() chan os.Signal {
 	ch := make(chan os.Signal, 1)
@@ -81,4 +86,61 @@ func StringToBoolean(b string) bool {
 
 	return false
 
+}
+
+func CompareTwoImage(img1, img2 image.Image) (dist float64, diffcnt float32, err error) {
+	if img1.Bounds() != img2.Bounds() {
+		err = ErrUnEqualBounds
+		return
+	}
+
+	imgMin, imgMax := img1.Bounds().Min, img1.Bounds().Max
+
+	var errsum uint64 = 0
+	var rc, gc, bc, tr, tg, tb uint64 = 0, 0, 0, 0, 0, 0
+
+	for x := imgMin.X; x < imgMax.X; x++ {
+		for y := imgMin.Y; y < imgMax.Y; y++ {
+			r1, g1, b1, a1 := img1.At(x, y).RGBA()
+			r2, g2, b2, a2 := img2.At(x, y).RGBA()
+
+			// sum rgb values
+			rdiff := sqrtDiff(r1, r2)
+			gdiff := sqrtDiff(g1, g2)
+			bdiff := sqrtDiff(b1, b2)
+			adiff := sqrtDiff(a1, a2)
+			errsum += rdiff + gdiff + bdiff + adiff
+
+			// count diff red
+			if rdiff > 0 {
+				rc++
+			}
+
+			// count diff green
+			if gdiff > 0 {
+				gc++
+			}
+
+			// count diff blue
+			if bdiff > 0 {
+				bc++
+			}
+
+			// total pixel
+			tb++
+			tr++
+			tg++
+		}
+
+	}
+
+	dist = math.Sqrt(float64(errsum))
+	diffcnt = float32(rc+bc+gc) / float32(tb+tr+tg)
+
+	return
+}
+
+func sqrtDiff(x, y uint32) uint64 {
+	d := uint64(x) - uint64(y)
+	return d * d
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/0w0mewo/mcrc_tgbot/config"
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
 	"gopkg.in/telebot.v3"
 )
 
@@ -113,7 +112,7 @@ func (mm *modMan[T]) GetTgEventHandlers(_type string) []telebot.HandlerFunc {
 
 // add discord command handler
 // unlike telebot, discord bot have proper handlers manager
-func (mm *modMan[T]) AddDcCmdHandler(handler func(s *discordgo.Session, m *discordgo.MessageCreate)) {
+func (mm *modMan[T]) AddDcHandler(handler func(s *discordgo.Session, m *discordgo.MessageCreate)) {
 	mm.dchlock.Lock()
 	defer mm.dchlock.Unlock()
 
@@ -121,7 +120,7 @@ func (mm *modMan[T]) AddDcCmdHandler(handler func(s *discordgo.Session, m *disco
 }
 
 // get discord command handler
-func (mm *modMan[T]) GetDcCmdHandlers() []func(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (mm *modMan[T]) GetDcHandlers() []func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	mm.dchlock.RLock()
 	defer mm.dchlock.RUnlock()
 
@@ -160,11 +159,10 @@ func WrappedDiscordCmdHandler(cmd string, next DcMsgHandler) func(s *discordgo.S
 			return
 		}
 
-		logrus.Println(m.Content)
 		if !strings.Contains(m.Content, ">"+cmd) {
 			return
 		}
-		logrus.Println("pass")
+
 		next(s, m)
 	}
 }

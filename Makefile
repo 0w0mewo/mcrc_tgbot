@@ -7,4 +7,4 @@ build:
 	upx -9 -f ${OUTPUT_FOLDER}${BINARY_NAME}
 
 clean:
-	go clean || rm -f ${OUTPUT_FOLDER}${BINARY_NAME}
+	go clean || rm -f ${OUTPUT_FOLDER}/*

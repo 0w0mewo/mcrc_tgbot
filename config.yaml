@@ -16,3 +16,5 @@ mlcapi:
   token:
     staff: sometoken
     man: sometoken
+
+avatar_sync: ""
