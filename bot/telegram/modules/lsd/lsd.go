@@ -33,7 +33,7 @@ func init() {
 
 	// load module
 	m := &lineStickerDown{
-		logger:  utils.NewLogger(),
+		logger:  utils.GetLogger().WithField("module", modname),
 		conf:    cfg,
 		fetcher: linesticker.NewFetcher(context.Background(), http.DefaultClient),
 		pool:    pool,
@@ -45,7 +45,7 @@ func init() {
 type lineStickerDown struct {
 	tgbot   *telebot.Bot
 	conf    *lineStickerDownconf
-	logger  *logrus.Logger
+	logger  *logrus.Entry
 	fetcher *linesticker.Fetcher
 	pool    *ants.Pool // for proccessing requested stickers packages
 	running bool

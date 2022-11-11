@@ -21,7 +21,7 @@ func init() {
 
 	// load module
 	m := &MlcApi{
-		logger: utils.NewLogger(),
+		logger: utils.GetLogger().WithField("module", modname),
 		conf:   cfg,
 		mlc:    mlcapi.NewMlcApiClient("", ""),
 	}
@@ -32,7 +32,7 @@ func init() {
 type MlcApi struct {
 	tgbot   *telebot.Bot
 	conf    *mlcApiConf
-	logger  *logrus.Logger
+	logger  *logrus.Entry
 	mlc     *mlcapi.MlcApiClient
 	running bool
 }

@@ -34,7 +34,7 @@ func init() {
 
 	// load module
 	m := &lsd{
-		logger:  utils.NewLogger().WithField("module", modname),
+		logger:  utils.GetLogger().WithField("module", modname),
 		conf:    cfg,
 		fetcher: linesticker.NewFetcher(context.Background(), http.DefaultClient),
 		pool:    pool,

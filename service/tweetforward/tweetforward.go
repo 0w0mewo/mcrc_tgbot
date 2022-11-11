@@ -24,7 +24,7 @@ type tweetForwarder struct {
 func newTweetForwarder() *tweetForwarder {
 	tf := &tweetForwarder{
 		repo:           persistent.NewChatTweetSubSqlStorage(persistent.DefaultDBConn),
-		logger:         utils.NewLogger().WithField("service", "tweetlistener"),
+		logger:         utils.GetLogger().WithField("service", "tweetlistener"),
 		evhub:          event.New(),
 		scheduledTasks: utils.NewScheduledTaskGroup("tweet_update"),
 		wg:             &sync.WaitGroup{},

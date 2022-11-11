@@ -19,7 +19,7 @@ func init() {
 
 	// load module
 	r := &Repeater{
-		logger:        utils.NewLogger(),
+		logger:        utils.GetLogger().WithField("module", modname),
 		conf:          cfg,
 		chatRandLimit: utils.NewRandomMap(cfg.randstart, cfg.randend),
 		msgCounter:    utils.NewCounter(),
@@ -33,7 +33,7 @@ type Repeater struct {
 	conf          *repeaterConf
 	chatRandLimit *utils.RandomMap
 	msgCounter    *utils.Counter
-	logger        *logrus.Logger
+	logger        *logrus.Entry
 	running       bool
 }
 

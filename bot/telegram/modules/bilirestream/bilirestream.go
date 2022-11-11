@@ -20,7 +20,7 @@ func init() {
 
 	// load module
 	m := &bilirestreamer{
-		logger: utils.NewLogger(),
+		logger: utils.GetLogger().WithField("module", modname),
 		conf:   cfg,
 		br:     bilirestream.NewClient(),
 	}
@@ -31,7 +31,7 @@ func init() {
 type bilirestreamer struct {
 	tgbot   *telebot.Bot
 	conf    *bilirestreamConf
-	logger  *logrus.Logger
+	logger  *logrus.Entry
 	br      *bilirestream.ApiClient
 	running bool
 }

@@ -19,7 +19,7 @@ type TelegramBot struct {
 }
 
 func NewTelegramBot(token string) (*TelegramBot, error) {
-	logger := utils.NewLogger().WithField("service", "tgbot")
+	logger := utils.GetLogger().WithField("service", "tgbot")
 
 	// bot init
 	tgbot, err := telebot.NewBot(telebot.Settings{

@@ -13,16 +13,15 @@ const modname = "tg.mod.tweetforwarder"
 func init() {
 	// load module
 	r := &Notifier{
-		logger: utils.NewLogger(),
+		logger: utils.GetLogger().WithField("module", modname),
 	}
 	tgbot.TgModRegister.RegistryMod(r)
 }
 
 // tweet notifier
 type Notifier struct {
-	tgbot *telebot.Bot
-
-	logger  *logrus.Logger
+	tgbot   *telebot.Bot
+	logger  *logrus.Entry
 	running bool
 }
 

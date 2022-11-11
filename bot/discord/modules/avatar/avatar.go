@@ -24,7 +24,7 @@ func init() {
 
 	// load module
 	m := &avatar{
-		logger: utils.NewLogger().WithField("module", modname),
+		logger: utils.GetLogger().WithField("module", modname),
 		conf:   cfg,
 	}
 	dcbot.DcModRegister.RegistryMod(m)

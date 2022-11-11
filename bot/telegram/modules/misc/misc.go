@@ -17,7 +17,7 @@ func init() {
 
 	// load module
 	m := &miscMod{
-		logger: utils.NewLogger(),
+		logger: utils.GetLogger().WithField("module", modname),
 		conf:   cfg,
 	}
 	tgbot.TgModRegister.RegistryMod(m)
@@ -27,7 +27,7 @@ func init() {
 type miscMod struct {
 	tgbot   *telebot.Bot
 	conf    *miscModConf
-	logger  *logrus.Logger
+	logger  *logrus.Entry
 	running bool
 }
 

@@ -11,10 +11,25 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
 )
+
+var once sync.Once
+var logger *logrus.Logger
+
+func init() {
+	once.Do(func() {
+		logger = logrus.New()
+		logger.Formatter = &logrus.TextFormatter{
+			ForceColors:   true,
+			FullTimestamp: true,
+		}
+	})
+
+}
 
 var ErrUnEqualBounds = errors.New("images with unequal bounds")
 
@@ -53,13 +68,7 @@ func RandChoice[T any](l []T) T {
 
 }
 
-func NewLogger() *logrus.Logger {
-	logger := logrus.New()
-	logger.Formatter = &logrus.TextFormatter{
-		ForceColors:   true,
-		FullTimestamp: true,
-	}
-
+func GetLogger() *logrus.Logger {
 	return logger
 
 }

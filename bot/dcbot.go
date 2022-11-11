@@ -20,7 +20,7 @@ func NewDiscordBot(token string) (*DiscordBot, error) {
 		return nil, err
 	}
 
-	logger := utils.NewLogger().WithField("service", "dcbot")
+	logger := utils.GetLogger().WithField("service", "dcbot")
 
 	return &DiscordBot{
 		logger: logger,
