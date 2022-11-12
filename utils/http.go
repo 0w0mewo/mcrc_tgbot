@@ -12,13 +12,13 @@ import (
 var ErrFailToGet = errors.New("fail to GET")
 var ErrNotFound = errors.New("NOT FOUND")
 
-func HttpGetWithProcessor(ctx context.Context, client *http.Client, url string, processor func(r io.Reader) error) error {
+func HttpDoWithProcessor(ctx context.Context, client *http.Client, method, url string, body io.Reader, processor func(r io.Reader) error) error {
 	errch := make(chan error, 1)
 	var wg sync.WaitGroup
 	pr, pw := io.Pipe()
 
 	// get
-	resp, err := get(ctx, client, url)
+	resp, err := do(ctx, client, method, url, body)
 	if err != nil {
 		return err
 	}
@@ -52,6 +52,10 @@ func HttpGetWithProcessor(ctx context.Context, client *http.Client, url string, 
 	return <-errch
 }
 
+func HttpGetWithProcessor(ctx context.Context, client *http.Client, url string, processor func(r io.Reader) error) error {
+	return HttpDoWithProcessor(ctx, client, http.MethodGet, url, nil, processor)
+}
+
 func HttpGetJson[T any](ctx context.Context, client *http.Client, url string, res T) error {
 	return HttpGetWithProcessor(ctx, client, url, func(r io.Reader) error {
 		return json.NewDecoder(r).Decode(res)
@@ -64,8 +68,8 @@ func header(req *http.Request) {
 
 }
 
-func get(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+func do(ctx context.Context, client *http.Client, method, url string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}

@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
+
+	"github.com/0w0mewo/mcrc_tgbot/utils"
 )
 
 type ApiClient struct {
@@ -44,49 +47,27 @@ func (mr *ApiClient) BiliRestream(reqtype string, username string, token string,
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	resp = &RestreamResp{}
+	err = utils.HttpGetJson(ctx, mr.hc, url, resp)
 	if err != nil {
 		return
 	}
 
-	hresp, err := mr.hc.Do(req)
-	if err != nil {
-		return
-	}
-	defer hresp.Body.Close()
-
-	var rresp RestreamResp
-
-	err = json.NewDecoder(hresp.Body).Decode(&rresp)
-	if err != nil {
-		return
-	}
-
-	resp = &rresp
 	return
 
 }
 
 func (mr *ApiClient) Gentoken(username string) (resp *TokenResp, err error) {
 	url := fmt.Sprintf("%s/%s", gentokenEndpoint, username)
-	req, err := http.NewRequest(http.MethodPut, url, nil)
-	if err != nil {
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-	hresp, err := mr.hc.Do(req)
-	if err != nil {
-		return
-	}
-	defer hresp.Body.Close()
+	resp = new(TokenResp)
 
-	var rresp TokenResp
-	err = json.NewDecoder(hresp.Body).Decode(&rresp)
-	if err != nil {
-		return
-	}
+	err = utils.HttpDoWithProcessor(ctx, mr.hc, http.MethodPut, url, nil, func(r io.Reader) error {
+		return json.NewDecoder(r).Decode(resp)
+	})
 
-	resp = &rresp
 	return
 
 }

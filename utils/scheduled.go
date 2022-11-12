@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -55,6 +56,7 @@ type ScheduledTaskGroup struct {
 	quit     chan bool
 	nrunning int32 // number of running tasks
 	logger   *logrus.Entry
+	once     *sync.Once
 }
 
 func NewScheduledTaskGroup(namespace string) *ScheduledTaskGroup {
@@ -68,6 +70,7 @@ func NewScheduledTaskGroup(namespace string) *ScheduledTaskGroup {
 		quit:     make(chan bool, 1),
 		nrunning: 0,
 		logger:   logger.WithField("taskgroup", namespace),
+		once:     &sync.Once{},
 	}
 }
 
@@ -82,13 +85,16 @@ func (ptg *ScheduledTaskGroup) AddPerodical(interval time.Duration, fn Taskfunc)
 }
 
 func (ptg *ScheduledTaskGroup) WaitAndStop() {
-	// kill and wait all running tasks
-	for i := int32(0); i < ptg.Running(); i++ {
-		ptg.quit <- true
-	}
-	ptg.waitTasksDone()
+	once.Do(func() {
+		// kill and wait all running tasks
+		for i := int32(0); i < ptg.Running(); i++ {
+			ptg.quit <- true
+		}
+		ptg.waitTasksDone()
 
-	close(ptg.quit)
+		close(ptg.quit)
+	})
+
 }
 
 func (ptg *ScheduledTaskGroup) doEvery(interval time.Duration, fn Taskfunc) {

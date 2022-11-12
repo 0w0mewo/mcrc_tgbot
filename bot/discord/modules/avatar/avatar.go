@@ -24,18 +24,20 @@ func init() {
 
 	// load module
 	m := &avatar{
-		logger: utils.GetLogger().WithField("module", modname),
-		conf:   cfg,
+		logger:    utils.GetLogger().WithField("module", modname),
+		conf:      cfg,
+		scheduled: utils.GetDefaultScheduledTasksGrp(),
 	}
 	dcbot.DcModRegister.RegistryMod(m)
 
 }
 
 type avatar struct {
-	dcbot   *discordgo.Session
-	conf    *avatarConf
-	logger  *logrus.Entry
-	running bool
+	dcbot     *discordgo.Session
+	conf      *avatarConf
+	logger    *logrus.Entry
+	scheduled *utils.ScheduledTaskGroup
+	running   bool
 }
 
 func (ma *avatar) Start(b *dcbot.DiscordBot) {
@@ -46,7 +48,10 @@ func (ma *avatar) Start(b *dcbot.DiscordBot) {
 
 	ma.Reload()
 
-	go ma.avatard()
+	ma.logger.Infof("watch to %s", ma.conf.syncToUserId)
+	ma.scheduled.AddPerodical(5*time.Minute, func() error {
+		return ma.avatard()
+	})
 
 	ma.logger.Printf("%s loaded", ma.Name())
 }
@@ -57,6 +62,8 @@ func (ma *avatar) Name() string {
 
 func (ma *avatar) Stop(b *dcbot.DiscordBot) {
 	ma.running = false
+	ma.scheduled.WaitAndStop()
+
 	ma.logger.Printf("%s unloaded", ma.Name())
 }
 
@@ -64,58 +71,53 @@ func (ma *avatar) Reload() {
 
 }
 
-func (ma *avatar) avatard() {
-	ticker := time.NewTicker(20 * time.Second)
-	defer ticker.Stop()
-
+func (ma *avatar) avatard() (err error) {
 	watchTo := ma.conf.syncToUserId
 
-	ma.logger.Infof("watch to %s", watchTo)
-
-	for range ticker.C {
-		expected, username, err := getUserAvatar(ma.dcbot, watchTo)
-		if err != nil {
-			ma.logger.Error(err)
-			return
-		}
-
-		current, _, err := getUserAvatar(ma.dcbot, ma.dcbot.State.User.ID)
-		if err != nil {
-			ma.logger.Error(err)
-			return
-		}
-
-		dist, pdiff, err := utils.CompareTwoImage(expected, current)
-		if err != nil {
-			ma.logger.Error(err)
-			return
-		}
-
-		ma.logger.Debugf("distance to expected avatar: %f, pixel difference: %f %%", dist, pdiff*100.0)
-
-		if pdiff > 0.5 {
-			ma.logger.Println("avatar change detected")
-
-			imgbuf := bytes.NewBuffer(nil)
-			err := png.Encode(imgbuf, expected)
-			if err != nil {
-				ma.logger.Error(err)
-				return
-			}
-
-			base64img := base64.StdEncoding.EncodeToString(imgbuf.Bytes())
-			avatar := fmt.Sprintf("data:image/png;base64,%s", base64img)
-
-			_, err = ma.dcbot.UserUpdate(username, avatar)
-			if err != nil {
-				ma.logger.Error(err)
-				return
-			}
-
-			return
-		}
-
+	expected, username, err := getUserAvatar(ma.dcbot, watchTo)
+	if err != nil {
+		ma.logger.Error(err)
+		return
 	}
+
+	current, _, err := getUserAvatar(ma.dcbot, ma.dcbot.State.User.ID)
+	if err != nil {
+		ma.logger.Error(err)
+		return
+	}
+
+	dist, pdiff, err := utils.CompareTwoImage(expected, current)
+	if err != nil {
+		ma.logger.Error(err)
+		return
+	}
+
+	ma.logger.Debugf("distance to expected avatar: %f, pixel difference: %f %%", dist, pdiff*100.0)
+
+	if pdiff > 0.5 {
+		ma.logger.Println("avatar change detected")
+
+		imgbuf := bytes.NewBuffer(nil)
+		err = png.Encode(imgbuf, expected)
+		if err != nil {
+			ma.logger.Error(err)
+			return
+		}
+
+		base64img := base64.StdEncoding.EncodeToString(imgbuf.Bytes())
+		avatar := fmt.Sprintf("data:image/png;base64,%s", base64img)
+
+		_, err = ma.dcbot.UserUpdate(username, avatar)
+		if err != nil {
+			ma.logger.Error(err)
+			return
+		}
+
+		return
+	}
+
+	return
+
 }
 
 func getUserAvatar(s *discordgo.Session, userId string) (img image.Image, username string, err error) {

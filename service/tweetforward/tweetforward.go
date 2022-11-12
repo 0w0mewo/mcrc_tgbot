@@ -25,8 +25,8 @@ func newTweetForwarder() *tweetForwarder {
 	tf := &tweetForwarder{
 		repo:           persistent.NewChatTweetSubSqlStorage(persistent.DefaultDBConn),
 		logger:         utils.GetLogger().WithField("service", "tweetlistener"),
-		evhub:          event.New(),
-		scheduledTasks: utils.NewScheduledTaskGroup("tweet_update"),
+		evhub:          utils.GetDefaultEventHub(),
+		scheduledTasks: utils.GetDefaultScheduledTasksGrp(),
 		wg:             &sync.WaitGroup{},
 	}
 
