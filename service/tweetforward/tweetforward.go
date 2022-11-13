@@ -9,14 +9,13 @@ import (
 	models "github.com/0w0mewo/mcrc_tgbot/model"
 	"github.com/0w0mewo/mcrc_tgbot/persistent"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
-	"github.com/agoalofalife/event"
 	"github.com/sirupsen/logrus"
 )
 
 type tweetForwarder struct {
 	repo           persistent.ChatTweetSubRepo
 	logger         *logrus.Entry
-	evhub          *event.Dispatcher
+	evhub          *utils.EventHub
 	scheduledTasks *utils.ScheduledTaskGroup
 	wg             *sync.WaitGroup
 }
@@ -75,8 +74,8 @@ func (tl *tweetForwarder) Unsubscribe(chatid int64, tweeter string) error {
 	return err
 }
 
-func (tl *tweetForwarder) DoWhenSet(cb any) {
-	tl.evhub.Add("newtweet", cb)
+func (tl *tweetForwarder) DoWhenSet(cb utils.EventCallback) {
+	tl.evhub.Register("newtweet", cb)
 }
 
 func (tl *tweetForwarder) Shutdown() {
@@ -139,7 +138,10 @@ func (tl *tweetForwarder) updateChatSubs(chatid int64) error {
 				WithField("tochat", chatid).
 				Println("updated tweet")
 
-			tl.evhub.Fire("newtweet", chatid, twurl)
+			ctx := PutNewTweetToContext(context.Background(), NewTweetContext{
+				Chatid: chatid, Tweeturl: twurl,
+			})
+			tl.evhub.Notify("newtweet", ctx)
 
 			// update state
 			tl.repo.UpdateLastTweet(context.Background(), chatid, tu.ID, twurl)

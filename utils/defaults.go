@@ -3,14 +3,13 @@ package utils
 import (
 	"sync"
 
-	"github.com/agoalofalife/event"
 	"github.com/sirupsen/logrus"
 )
 
 // various global default utils instance
 var once sync.Once
 var logger *logrus.Logger
-var eventHub *event.Dispatcher
+var eventHub *EventHub
 var scheduledTasks *ScheduledTaskGroup
 
 func init() {
@@ -21,7 +20,7 @@ func init() {
 			FullTimestamp: true,
 		}
 
-		eventHub = event.New()
+		eventHub = NewEventHub("default")
 
 		scheduledTasks = NewScheduledTaskGroup("default")
 	})
@@ -35,7 +34,7 @@ func GetLogger() *logrus.Logger {
 }
 
 // globally available event hub
-func GetDefaultEventHub() *event.Dispatcher {
+func GetDefaultEventHub() *EventHub {
 	return eventHub
 }
 

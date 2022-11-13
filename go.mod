@@ -3,7 +3,6 @@ module github.com/0w0mewo/mcrc_tgbot
 go 1.18
 
 require (
-	github.com/agoalofalife/event v0.2.0
 	github.com/bwmarrin/discordgo v0.26.1
 	github.com/friendsofgo/errors v0.9.2
 	github.com/fsnotify/fsnotify v1.5.4

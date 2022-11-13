@@ -1,6 +1,9 @@
 package tweetforward
 
-import models "github.com/0w0mewo/mcrc_tgbot/model"
+import (
+	models "github.com/0w0mewo/mcrc_tgbot/model"
+	"github.com/0w0mewo/mcrc_tgbot/utils"
+)
 
 var defaultForwarder *tweetForwarder
 
@@ -21,7 +24,7 @@ func GetSubscriptions(chatid int64) (models.TweetUserSlice, error) {
 	return defaultForwarder.GetSubscriptions(chatid)
 }
 
-func DoWhenSet(cb any) {
+func DoWhenSet(cb utils.EventCallback) {
 	defaultForwarder.DoWhenSet(cb)
 }
 

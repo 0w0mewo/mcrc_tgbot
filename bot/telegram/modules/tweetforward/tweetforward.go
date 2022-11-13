@@ -1,6 +1,8 @@
 package notifier
 
 import (
+	"context"
+
 	tgbot "github.com/0w0mewo/mcrc_tgbot/bot"
 	tweetforward "github.com/0w0mewo/mcrc_tgbot/service/tweetforward"
 	"github.com/0w0mewo/mcrc_tgbot/utils"
@@ -33,9 +35,13 @@ func (t *Notifier) Start(b *tgbot.TelegramBot) {
 
 	t.Reload()
 
-	tweetforward.DoWhenSet(func(chatid int64, tweet string) error {
-		_, err := t.tgbot.Send(&telebot.Chat{ID: chatid}, tweet)
+	tweetforward.DoWhenSet(func(ctx context.Context) error {
+		val, err := tweetforward.GetNewTweetFromContext(ctx)
+		if err != nil {
+			return err
+		}
 
+		_, err = t.tgbot.Send(&telebot.Chat{ID: val.Chatid}, val.Tweeturl)
 		return err
 	})
 
