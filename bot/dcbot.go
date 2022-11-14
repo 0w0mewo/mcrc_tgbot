@@ -7,6 +7,17 @@ import (
 )
 
 type DcMsgHandler func(s *discordgo.Session, m *discordgo.MessageCreate)
+type DiscordSlashCmdEntry struct {
+	handler    func(s *discordgo.Session, i *discordgo.InteractionCreate)
+	descriptor *discordgo.ApplicationCommand
+}
+
+func NewDiscordSlashCmdEntry(desc *discordgo.ApplicationCommand, handler func(s *discordgo.Session, i *discordgo.InteractionCreate)) *DiscordSlashCmdEntry {
+	return &DiscordSlashCmdEntry{
+		handler:    handler,
+		descriptor: desc,
+	}
+}
 
 // TODO
 type DiscordBot struct {
@@ -38,14 +49,44 @@ func (dc *DiscordBot) Start() {
 		m.Start(dc)
 	}
 
-	// register handlers
-	for _, h := range DcModRegister.GetDcHandlers() {
+	// register message handlers
+	for _, h := range DcModRegister.GetDcMesgHandlers() {
 		dc.bot.AddHandler(h)
 	}
+
+	// register slash command handler
+	dc.bot.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		cmd := i.ApplicationCommandData().Name
+
+		entry := DcModRegister.GetDcCmdHandler(cmd)
+		if entry == nil {
+			dc.logger.Error("no such command:", cmd)
+			return
+		}
+
+		entry.handler(s, i)
+
+	})
 
 	err := dc.bot.Open()
 	if err != nil {
 		dc.logger.Error(err)
+		return
+	}
+
+	// slash commands register on each joined group
+	joinedgrps := dc.bot.State.Guilds
+	appid := dc.bot.State.User.ID
+	for _, grp := range joinedgrps {
+		dc.logger.Infof("joined group/channel: %s-%s", grp.ID, grp.Name)
+
+		for cmd, entry := range DcModRegister.GetDcCmdHandlers() {
+			_, err = dc.bot.ApplicationCommandCreate(appid, grp.ID, entry.descriptor)
+			if err != nil {
+				dc.logger.Error(err)
+			}
+			dc.logger.Infof("register slash command: %s to guild %s", cmd, grp.Name)
+		}
 
 	}
 

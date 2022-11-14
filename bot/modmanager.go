@@ -28,27 +28,27 @@ type BotModule[T WrappedBotType] interface {
 }
 
 type modMan[T WrappedBotType] struct {
-	tghlock, dchlock *sync.RWMutex
-	mods             map[string]BotModule[T]
-	tghandlers       map[string][]telebot.HandlerFunc                         // registered telegram handlers
-	dchandlers       []func(s *discordgo.Session, m *discordgo.MessageCreate) // registered discord message handlers
+	reglock, tghlock, dchlock *sync.RWMutex
+	mods                      map[string]BotModule[T]
+	tghandlers                map[string][]telebot.HandlerFunc                         // registered telegram handlers
+	dcMsghandlers             []func(s *discordgo.Session, m *discordgo.MessageCreate) // registered discord message handlers
+	dcCmdhandlers             map[string]*DiscordSlashCmdEntry                         // registered discord slash command handlers
 }
 
 // create a discord bot module manager
 func newDcModMan() *modMan[DiscordBot] {
 	ret := &modMan[DiscordBot]{
-		mods:       make(map[string]BotModule[DiscordBot]),
-		tghlock:    &sync.RWMutex{},
-		dchlock:    &sync.RWMutex{},
-		dchandlers: make([]func(s *discordgo.Session, m *discordgo.MessageCreate), 0),
+		mods:          make(map[string]BotModule[DiscordBot]),
+		dchlock:       &sync.RWMutex{},
+		reglock:       &sync.RWMutex{},
+		dcMsghandlers: make([]func(s *discordgo.Session, m *discordgo.MessageCreate), 0),
+		dcCmdhandlers: make(map[string]*DiscordSlashCmdEntry),
 	}
 
 	// reload modules when config file changed
-	go func() {
-		for range config.ConfigChanged() {
-			ret.ReloadModules()
-		}
-	}()
+	config.OnConfigChanged(func() {
+		ret.ReloadModules()
+	})
 
 	return ret
 }
@@ -58,29 +58,20 @@ func newTgModMan() *modMan[TelegramBot] {
 	ret := &modMan[TelegramBot]{
 		mods:       make(map[string]BotModule[TelegramBot]),
 		tghlock:    &sync.RWMutex{},
+		reglock:    &sync.RWMutex{},
 		tghandlers: make(map[string][]telebot.HandlerFunc),
-		dchlock:    &sync.RWMutex{},
 	}
 
 	// reload modules when config file changed
-	go func() {
-		for range config.ConfigChanged() {
-			ret.ReloadModules()
-		}
-	}()
+	// reload modules when config file changed
+	config.OnConfigChanged(func() {
+		ret.ReloadModules()
+	})
 
 	return ret
 }
 
-func (mm *modMan[T]) ReloadModules() {
-	mm.tghlock.Lock()
-	defer mm.tghlock.Unlock()
-
-	for _, mod := range mm.mods {
-		mod.Reload()
-	}
-}
-
+// register a telegram bot event handler
 func (mm *modMan[T]) AddTgEventHandler(_type string, handler telebot.HandlerFunc) {
 	mm.tghlock.Lock()
 	defer mm.tghlock.Unlock()
@@ -98,6 +89,7 @@ func (mm *modMan[T]) AddTgEventHandler(_type string, handler telebot.HandlerFunc
 	mm.tghandlers[_type] = append(mm.tghandlers[_type], handler)
 }
 
+// get a telegram bot event handler
 func (mm *modMan[T]) GetTgEventHandlers(_type string) []telebot.HandlerFunc {
 	mm.tghlock.RLock()
 	defer mm.tghlock.RUnlock()
@@ -110,35 +102,58 @@ func (mm *modMan[T]) GetTgEventHandlers(_type string) []telebot.HandlerFunc {
 	return mm.tghandlers[_type]
 }
 
-// add discord command handler
+// add discord message handler
 // unlike telebot, discord bot have proper handlers manager
-func (mm *modMan[T]) AddDcHandler(handler func(s *discordgo.Session, m *discordgo.MessageCreate)) {
+func (mm *modMan[T]) AddDcMesgHandler(handler func(s *discordgo.Session, m *discordgo.MessageCreate)) {
 	mm.dchlock.Lock()
 	defer mm.dchlock.Unlock()
 
-	mm.dchandlers = append(mm.dchandlers, handler)
+	mm.dcMsghandlers = append(mm.dcMsghandlers, handler)
 }
 
-// get discord command handler
-func (mm *modMan[T]) GetDcHandlers() []func(s *discordgo.Session, m *discordgo.MessageCreate) {
+// add discord slash command entry
+func (mm *modMan[T]) AddDcSlashCmdHandler(cmd string, entry *DiscordSlashCmdEntry) {
+	mm.dchlock.Lock()
+	defer mm.dchlock.Unlock()
+
+	mm.dcCmdhandlers[cmd] = entry
+}
+
+// get discord message handler
+func (mm *modMan[T]) GetDcMesgHandlers() []func(s *discordgo.Session, m *discordgo.MessageCreate) {
 	mm.dchlock.RLock()
 	defer mm.dchlock.RUnlock()
 
-	return mm.dchandlers
+	return mm.dcMsghandlers
 }
 
+// get discord slash command entry
+func (mm *modMan[T]) GetDcCmdHandler(cmd string) *DiscordSlashCmdEntry {
+	mm.dchlock.RLock()
+	defer mm.dchlock.RUnlock()
+
+	return mm.dcCmdhandlers[cmd]
+}
+
+// get all discord slash command entries
+func (mm *modMan[T]) GetDcCmdHandlers() map[string]*DiscordSlashCmdEntry {
+	return mm.dcCmdhandlers
+}
+
+// register a bot module
 func (mm *modMan[T]) RegistryMod(mod BotModule[T]) {
 	modName := mod.Name()
 
-	mm.tghlock.Lock()
-	defer mm.tghlock.Unlock()
+	mm.reglock.Lock()
+	defer mm.reglock.Unlock()
 
 	mm.mods[modName] = mod
 }
 
+// get all registered bot module
 func (mm *modMan[T]) GetModules() []BotModule[T] {
-	mm.tghlock.RLock()
-	defer mm.tghlock.RUnlock()
+	mm.reglock.RLock()
+	defer mm.reglock.RUnlock()
 
 	mods := make([]BotModule[T], 0, len(mm.mods))
 
@@ -147,6 +162,16 @@ func (mm *modMan[T]) GetModules() []BotModule[T] {
 	}
 
 	return mods
+}
+
+// reload all registered bot module
+func (mm *modMan[T]) ReloadModules() {
+	mm.reglock.Lock()
+	defer mm.reglock.Unlock()
+
+	for _, mod := range mm.mods {
+		mod.Reload()
+	}
 }
 
 func defaultTgHandler(ctx telebot.Context) error {

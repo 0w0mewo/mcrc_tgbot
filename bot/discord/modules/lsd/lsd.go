@@ -21,6 +21,7 @@ import (
 var ErrNotEnoughArguments = errors.New("not enough args")
 
 const modname = "dc.mod.lsd"
+const cmd = "lsd"
 
 func init() {
 	// load config and regsiter to manager
@@ -58,9 +59,32 @@ func (ma *lsd) Start(b *dcbot.DiscordBot) {
 		ma.running = true
 	}
 
-	dcbot.DcModRegister.AddDcHandler(
-		dcbot.WrappedDiscordCmdHandler("lsd", ma.lsd))
+	// non-slash command
+	dcbot.DcModRegister.AddDcMesgHandler(
+		dcbot.WrappedDiscordCmdHandler(cmd, ma.lsd))
 
+	// slash command
+	desc := dcbot.NewDiscordSlashCmdEntry(&discordgo.ApplicationCommand{
+		Name:        cmd,
+		Description: "line stickers downloader",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionInteger,
+				Name:        "packid",
+				Description: "stickers package id",
+				Required:    true,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "qqtrans",
+				Description: "whether the stickers convert to gif format",
+				Required:    false,
+			},
+		},
+	}, ma.slashlsd)
+	dcbot.DcModRegister.AddDcSlashCmdHandler(cmd, desc)
+
+	// reload
 	ma.Reload()
 
 	ma.logger.Printf("%s loaded", ma.Name())
@@ -79,6 +103,35 @@ func (ma *lsd) Reload() {
 
 }
 
+func (ma *lsd) slashlsd(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	_params := i.ApplicationCommandData().Options
+	parmas := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(_params))
+	for _, opt := range _params {
+		parmas[opt.Name] = opt
+	}
+
+	packid := parmas["packid"].IntValue()
+	_qqtrans := parmas["qqtrans"]
+	var qqtrans bool
+	if _qqtrans == nil {
+		qqtrans = true
+	} else {
+		qqtrans = _qqtrans.BoolValue()
+	}
+
+	// pass request to workers
+	err := ma.pool.Submit(func() {
+		ma.downloadAndSend(i.ChannelID, int(packid), qqtrans)
+	})
+	if err != nil {
+		ma.logger.Error("pool", err)
+		utils.DiscordSlashCmdRespString(s, i.Interaction, "fail to download package")
+		return
+	}
+
+	utils.DiscordSlashCmdRespString(s, i.Interaction, fmt.Sprintf("downloading sticker pack: %d", packid))
+}
+
 func (ma *lsd) lsd(s *discordgo.Session, m *discordgo.MessageCreate) {
 	var packid int
 	var qqtrans bool
@@ -86,7 +139,7 @@ func (ma *lsd) lsd(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	senderChannel := m.ChannelID
 
-	// expect /lsd <packid> [<qqtrans>]
+	// expect >lsd <packid> [<qqtrans>]
 	args := strings.Split(m.Content, " ")
 	args = args[1:]
 

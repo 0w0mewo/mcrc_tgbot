@@ -29,3 +29,7 @@ func Reload() {
 func Table() map[string]IConfig {
 	return defaultConfig.Table()
 }
+
+func OnConfigChanged(cb ConfigChangedHandler) {
+	defaultConfig.OnConfigChanged(cb)
+}

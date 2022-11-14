@@ -61,6 +61,9 @@ func (eh *EventHub) Notify(ev string, ctx context.Context) {
 	}
 }
 
+
+
+// wait for event callbacks finish
 func (eh *EventHub) Wait() {
 	eh.wg.Wait()
 }

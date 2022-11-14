@@ -12,6 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const EventNewtweet = "newtweet"
+
 type tweetForwarder struct {
 	repo           persistent.ChatTweetSubRepo
 	logger         *logrus.Entry
@@ -75,7 +77,7 @@ func (tl *tweetForwarder) Unsubscribe(chatid int64, tweeter string) error {
 }
 
 func (tl *tweetForwarder) DoWhenSet(cb utils.EventCallback) {
-	tl.evhub.Register("newtweet", cb)
+	tl.evhub.Register(EventNewtweet, cb)
 }
 
 func (tl *tweetForwarder) Shutdown() {
@@ -141,7 +143,7 @@ func (tl *tweetForwarder) updateChatSubs(chatid int64) error {
 			ctx := PutNewTweetToContext(context.Background(), NewTweetContext{
 				Chatid: chatid, Tweeturl: twurl,
 			})
-			tl.evhub.Notify("newtweet", ctx)
+			tl.evhub.Notify(EventNewtweet, ctx)
 
 			// update state
 			tl.repo.UpdateLastTweet(context.Background(), chatid, tu.ID, twurl)

@@ -9,15 +9,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type ConfigChangedHandler func()
+
 type ConfigType map[string]any
 
 type configManager struct {
-	configwatcher *fsnotify.Watcher
-	cfgFile       string
-	cfg           ConfigType         // config file map
-	regTable      map[string]IConfig // registered configuration
-	rwlock        sync.RWMutex
-	changed       chan bool
+	configwatcher   *fsnotify.Watcher
+	cfgFile         string
+	cfg             ConfigType         // config file map
+	regTable        map[string]IConfig // registered configuration
+	rwlock          sync.RWMutex
+	changed         chan bool
+	changedhandlers []ConfigChangedHandler
 }
 
 func newConfigManager(cfgfile string) *configManager {
@@ -32,15 +35,17 @@ func newConfigManager(cfgfile string) *configManager {
 	}
 
 	cm := &configManager{
-		configwatcher: watcher,
-		regTable:      make(map[string]IConfig),
-		cfg:           make(ConfigType),
-		cfgFile:       cfgfile,
-		changed:       make(chan bool),
+		configwatcher:   watcher,
+		regTable:        make(map[string]IConfig),
+		cfg:             make(ConfigType),
+		cfgFile:         cfgfile,
+		changed:         make(chan bool),
+		changedhandlers: make([]ConfigChangedHandler, 0),
 	}
 
 	cm.loadConfig()
 
+	// file changed signaling thread
 	go func(ev chan fsnotify.Event) {
 		for {
 			select {
@@ -53,11 +58,27 @@ func newConfigManager(cfgfile string) *configManager {
 		}
 	}(watcher.Events)
 
+	// thread for handle file changed
+	go func() {
+		for range cm.changed {
+			for _, handler := range cm.changedhandlers {
+				if handler != nil {
+					handler()
+				}
+
+			}
+		}
+	}()
+
 	return cm
 }
 
 func (cm *configManager) ConfigChanged() chan bool {
 	return cm.changed
+}
+
+func (cm *configManager) OnConfigChanged(cb ConfigChangedHandler) {
+	cm.changedhandlers = append(cm.changedhandlers, cb)
 }
 
 func (cm *configManager) GetConfigFile() ConfigType {
