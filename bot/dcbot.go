@@ -68,26 +68,31 @@ func (dc *DiscordBot) Start() {
 
 	})
 
+	dc.bot.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		me := r.User
+		for _, grp := range r.Guilds {
+			dc.logger.Infof("%s(%s) is ready to serve on channel: %s(%s)", me.Username, me.ID, grp.Name, grp.ID)
+		}
+
+		dc.logger.Infof("you can now join the bot to a server via https://discord.com/oauth2/authorize?client_id=%s&permissions=0&scope=bot", me)
+
+	})
+
+	// bot start
 	err := dc.bot.Open()
 	if err != nil {
 		dc.logger.Error(err)
 		return
 	}
 
-	// slash commands register on each joined group
-	joinedgrps := dc.bot.State.Guilds
+	// slash commands register
 	appid := dc.bot.State.User.ID
-	for _, grp := range joinedgrps {
-		dc.logger.Infof("joined group/channel: %s-%s", grp.ID, grp.Name)
-
-		for cmd, entry := range DcModRegister.GetDcCmdHandlers() {
-			_, err = dc.bot.ApplicationCommandCreate(appid, grp.ID, entry.descriptor)
-			if err != nil {
-				dc.logger.Error(err)
-			}
-			dc.logger.Infof("register slash command: %s to guild %s", cmd, grp.Name)
+	for cmd, entry := range DcModRegister.GetDcCmdHandlers() {
+		_, err = dc.bot.ApplicationCommandCreate(appid, "", entry.descriptor)
+		if err != nil {
+			dc.logger.Error(err)
 		}
-
+		dc.logger.Infof("register slash command: %s", cmd)
 	}
 
 	err = dc.bot.UpdateGameStatus(0, "f,fk")
@@ -97,12 +102,31 @@ func (dc *DiscordBot) Start() {
 }
 
 func (dc *DiscordBot) Stop() {
-	mods := DcModRegister.GetModules()
+	defer func() {
+		dc.bot.Close()
+		dc.logger.Infof("stopped")
+	}()
 
+	mods := DcModRegister.GetModules()
 	for _, m := range mods {
 		m.Stop(dc)
 	}
-	dc.bot.Close()
+
+	// delete all slash commands
+	appid := dc.bot.State.User.ID
+	apps, err := dc.bot.ApplicationCommands(appid, "")
+	if err != nil {
+		dc.logger.Error(err)
+		return
+	}
+	for _, slashcmd := range apps {
+		err := dc.bot.ApplicationCommandDelete(appid, slashcmd.GuildID, slashcmd.ID)
+		if err != nil {
+			dc.logger.Error(err)
+		}
+
+	}
+
 }
 
 func (dc *DiscordBot) Bot() *discordgo.Session {

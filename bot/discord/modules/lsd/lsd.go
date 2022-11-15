@@ -180,7 +180,7 @@ func (ma *lsd) downloadAndSend(respTo string, packid int, qqTrans bool) {
 	// download stickers
 	data, err := ma.fetcher.SaveStickers(context.Background(), packid, qqTrans)
 	if err != nil {
-		ma.logger.Error("worker", err)
+		ma.logger.Error("worker: ", err)
 		ma.dcbot.ChannelMessageSend(respTo, "fail to download")
 		return
 	}

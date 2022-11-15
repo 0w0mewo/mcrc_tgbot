@@ -79,6 +79,10 @@ func (b *TelegramBot) Start() {
 }
 
 func (b *TelegramBot) Stop() {
+	defer func() {
+		b.tgbot.Stop()
+		b.logger.Infof("stopped")
+	}()
 	// kill all modules
 	mods := TgModRegister.GetModules()
 	for _, m := range mods {
@@ -91,8 +95,6 @@ func (b *TelegramBot) Stop() {
 	// kill event handlers pool
 	b.eventHandlersPool.Release()
 
-	// stop tgbot
-	b.tgbot.Stop()
 }
 
 func (b *TelegramBot) Bot() *telebot.Bot {
